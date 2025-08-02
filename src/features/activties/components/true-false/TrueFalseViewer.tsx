@@ -13,6 +13,8 @@ import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
 import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
 import { Check, X } from 'lucide-react';
+import { type AchievementConfig } from '../achievement/AchievementConfigEditor';
+import { getAchievementConfig } from '../../utils/achievement-utils';
 
 export interface TrueFalseViewerProps {
   activity: TrueFalseActivity;
@@ -22,6 +24,7 @@ export interface TrueFalseViewerProps {
   onProgress?: (progress: number) => void;
   className?: string;
   submitButton?: React.ReactNode; // Universal submit button from parent
+  achievementConfig?: AchievementConfig; // Achievement configuration for points and rewards
 }
 
 /**
@@ -41,10 +44,14 @@ export const TrueFalseViewer: React.FC<TrueFalseViewerProps> = ({
   onSubmit,
   onProgress,
   className,
-  submitButton
+  submitButton,
+  achievementConfig
 }) => {
   // Memory leak prevention
   const { isMounted } = useMemoryLeakPrevention('true-false-viewer');
+
+  // Get achievement configuration (use provided config or extract from activity)
+  const finalAchievementConfig = achievementConfig || getAchievementConfig(activity);
 
   // State for tracking selected answers and submission
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, boolean>>({});
@@ -412,6 +419,7 @@ export const TrueFalseViewer: React.FC<TrueFalseViewerProps> = ({
           }}
           showTryAgain={true}
           className="min-w-[140px]"
+          achievementConfig={finalAchievementConfig}
         >
           Submit True/False
         </UniversalActivitySubmit>

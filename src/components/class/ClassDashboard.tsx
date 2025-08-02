@@ -81,6 +81,30 @@ export function ClassDashboard({
     setIsRefreshing(false);
   };
 
+  // FIXED: Add real-time event listeners for consistent dashboard updates
+  useEffect(() => {
+    const handleRealTimeUpdate = () => {
+      // Refresh all dashboard data when real-time events occur
+      handleRefresh();
+    };
+
+    // Add event listeners for real-time updates
+    if (typeof window !== 'undefined') {
+      window.addEventListener('activity-submitted', handleRealTimeUpdate);
+      window.addEventListener('dashboard-update-needed', handleRealTimeUpdate);
+      window.addEventListener('analytics-refresh-needed', handleRealTimeUpdate);
+    }
+
+    // Cleanup event listeners
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('activity-submitted', handleRealTimeUpdate);
+        window.removeEventListener('dashboard-update-needed', handleRealTimeUpdate);
+        window.removeEventListener('analytics-refresh-needed', handleRealTimeUpdate);
+      }
+    };
+  }, [refetchAnalytics, refetchAssessments, refetchActivities]);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">

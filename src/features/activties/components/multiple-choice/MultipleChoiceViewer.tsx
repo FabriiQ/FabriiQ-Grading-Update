@@ -15,6 +15,8 @@ import { MediaDisplay } from '../ui/MediaDisplay';
 import { SwipeHandler } from '../ui/SwipeHandler';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { cn } from '@/lib/utils';
+import { type AchievementConfig } from '../achievement/AchievementConfigEditor';
+import { getAchievementConfig } from '../../utils/achievement-utils';
 
 export interface MultipleChoiceViewerProps {
   activity: MultipleChoiceActivity;
@@ -24,6 +26,7 @@ export interface MultipleChoiceViewerProps {
   onProgress?: (progress: number) => void;
   className?: string;
   submitButton?: React.ReactNode; // Universal submit button from parent
+  achievementConfig?: AchievementConfig; // Achievement configuration for points and rewards
 }
 
 /**
@@ -46,7 +49,8 @@ export const MultipleChoiceViewer: React.FC<MultipleChoiceViewerProps> = ({
   onSubmit,
   onProgress,
   className,
-  submitButton
+  submitButton,
+  achievementConfig
 }) => {
   // Memory leak prevention
   const { safeSetTimeout, isMounted, registerCleanup } = useMemoryLeakPrevention('multiple-choice-viewer');
@@ -65,6 +69,9 @@ export const MultipleChoiceViewer: React.FC<MultipleChoiceViewerProps> = ({
   // Refs for scroll position management
   const containerRef = useRef<HTMLDivElement>(null);
   const questionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Get achievement configuration (use provided config or extract from activity)
+  const finalAchievementConfig = achievementConfig || getAchievementConfig(activity);
 
   // Shuffle questions and options if enabled
   const [shuffledQuestions, setShuffledQuestions] = useState<MultipleChoiceQuestion[]>([]);
@@ -531,6 +538,7 @@ export const MultipleChoiceViewer: React.FC<MultipleChoiceViewerProps> = ({
             }}
             showTryAgain={true}
             className="min-w-[140px]"
+            achievementConfig={finalAchievementConfig}
           >
             Submit Multiple Choice
           </UniversalActivitySubmit>

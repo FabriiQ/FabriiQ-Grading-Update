@@ -37,18 +37,19 @@ export const metadata: Metadata = {
 };
 
 export default async function SystemAdminDashboardPage() {
-  try {
-    const session = await getSessionCache();
+  const session = await getSessionCache();
 
-    // Check if session exists
-    if (!session?.user?.id) {
-      logger.debug('No session found for system admin page, redirecting to login');
-      return redirect("/login");
-    }
+  // Check if session exists
+  if (!session?.user?.id) {
+    logger.debug('No session found for system admin page, redirecting to login');
+    redirect("/login");
+  }
+
+  try {
 
     // Cache user details
     const userCacheKey = `user:${session.user.id}`;
-    let user = await userCache.get<User>(userCacheKey);
+    let user = await userCache.get(userCacheKey) as User | null;
 
     if (!user) {
       // Fetch user from database if not in cache
@@ -59,22 +60,22 @@ export default async function SystemAdminDashboardPage() {
           name: true,
           userType: true,
         },
-      }) as User;
+      }) as User | null;
 
       // If user not found in database, redirect to login
       if (!user) {
         logger.debug('User not found for system admin page, redirecting to login');
-        return redirect("/login");
+        redirect("/login");
       }
 
       // Cache the user data
-      await userCache.set(userCacheKey, user, { ttl: 60 * 5 }); // Cache for 5 minutes
+      await userCache.set(userCacheKey, user, 60 * 5); // Cache for 5 minutes
     }
 
     // Check if user has SYSTEM_ADMIN role
     if (user.userType !== 'SYSTEM_ADMIN') {
       logger.debug(`User type ${user.userType} not authorized for system admin page, redirecting to unauthorized`);
-      return redirect("/unauthorized"); // Redirect to unauthorized page instead of login
+      redirect("/unauthorized"); // Redirect to unauthorized page instead of login
     }
 
     // Log successful access
@@ -85,7 +86,7 @@ export default async function SystemAdminDashboardPage() {
 
     // Cache system counts
     const countsCacheKey = 'system:dashboard:counts';
-    let counts = await dataCache.get<SystemCounts>(countsCacheKey);
+    let counts = await dataCache.get(countsCacheKey) as SystemCounts | null;
     if (!counts) {
       counts = {
         institutions: await prisma.institution.count({
@@ -103,7 +104,7 @@ export default async function SystemAdminDashboardPage() {
 
     // Cache audit logs
     const auditLogsCacheKey = 'system:dashboard:auditLogs';
-    let recentAuditLogs = await dataCache.get<AuditLog[]>(auditLogsCacheKey);
+    let recentAuditLogs = await dataCache.get(auditLogsCacheKey) as AuditLog[] | null;
     if (!recentAuditLogs) {
       recentAuditLogs = await prisma.auditLog.findMany({
         take: 5,
@@ -137,7 +138,7 @@ export default async function SystemAdminDashboardPage() {
 
     // Get dashboard metrics
     const dashboardMetricsCacheKey = 'system:dashboard:metrics';
-    let dashboardMetrics = await dataCache.get(dashboardMetricsCacheKey);
+    let dashboardMetrics = await dataCache.get(dashboardMetricsCacheKey) as any;
 
     if (!dashboardMetrics) {
       // Use counts from earlier query as fallback
@@ -150,7 +151,7 @@ export default async function SystemAdminDashboardPage() {
         tickets: { value: Math.floor(Math.random() * 10) + 1, description: "Open support tickets" },
       };
 
-      await dataCache.set(dashboardMetricsCacheKey, dashboardMetrics, { ttl: 60 * 15 }); // Cache for 15 minutes
+      await dataCache.set(dashboardMetricsCacheKey, dashboardMetrics, 60 * 15); // Cache for 15 minutes
     }
 
     // Use the dashboard metrics
@@ -169,6 +170,7 @@ export default async function SystemAdminDashboardPage() {
     );
   } catch (error) {
     logger.error("Error in system admin page:", { error });
-    return redirect("/login");
+    // Don't redirect on error, show error page instead
+    throw error;
   }
 }

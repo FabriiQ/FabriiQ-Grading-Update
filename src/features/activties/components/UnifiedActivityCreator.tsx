@@ -27,6 +27,7 @@ import { api } from '@/trpc/react';
 
 // Import the API integration utilities
 import { prepareActivityCreateData, validateActivityData } from '@/components/teacher/activities/enhanced/utils/api-integration';
+import { AchievementConfigEditor, type AchievementConfig } from './achievement/AchievementConfigEditor';
 
 // Define ActivityTypeDefinition interface to replace the old one
 interface ActivityTypeDefinition<T> {
@@ -156,6 +157,24 @@ function UnifiedActivityCreatorCore({
 
   // State for activity configuration
   const [config, setConfig] = useState<any>({});
+
+  // State for achievement configuration
+  const [achievementConfig, setAchievementConfig] = useState<AchievementConfig>({
+    enableAchievements: true,
+    enablePointsAnimation: true,
+    celebrationLevel: 'standard',
+    basePoints: 20,
+    customPointsMultiplier: 1.0,
+    bonusPointsForPerfectScore: 10,
+    bonusPointsForSpeed: 5,
+    bonusPointsForFirstAttempt: 5,
+    enablePerfectScoreAchievement: true,
+    enableSpeedAchievement: true,
+    enableFirstAttemptAchievement: true,
+    enableImprovementAchievement: true,
+    speedBonusThreshold: 60,
+    estimatedPoints: { minimum: 20, average: 30, maximum: 40 }
+  });
 
   // Determine if activity is gradable and requires teacher review
   const isGradable = activityType?.capabilities?.isGradable ?? false;
@@ -329,6 +348,7 @@ function UnifiedActivityCreatorCore({
         passingScore: sanitizedData.passingScore,
         duration: sanitizedData.duration,
       },
+      achievementConfig: achievementConfig,
     };
 
     console.log('Submitting activity data:', activityData);
@@ -670,6 +690,13 @@ function UnifiedActivityCreatorCore({
             </Suspense>
           </CardContent>
         </Card>
+
+        {/* Achievement Configuration */}
+        <AchievementConfigEditor
+          activityType={activityTypeId}
+          initialConfig={achievementConfig}
+          onChange={setAchievementConfig}
+        />
 
         {/* Form Actions */}
         <div className="flex justify-end gap-4">

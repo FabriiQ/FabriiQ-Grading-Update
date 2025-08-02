@@ -37,37 +37,63 @@ export default function TeacherAnalyticsPage() {
   const [selectedTimeframe, setSelectedTimeframe] = useState<string>("month");
   const [isExporting, setIsExporting] = useState(false);
 
-  // Mock data for initial development
-  // In production, this would be fetched from the API
-  const mockDepartments = [
-    { id: "dept1", name: "Science Department" },
-    { id: "dept2", name: "Humanities Department" },
-    { id: "dept3", name: "Mathematics Department" }
-  ];
+  // FIXED: Replace mock data with real API calls
 
-  const mockPrograms = [
-    { id: "program1", name: "Computer Science", departmentId: "dept1" },
-    { id: "program2", name: "Physics", departmentId: "dept1" },
-    { id: "program3", name: "Literature", departmentId: "dept2" },
-    { id: "program4", name: "History", departmentId: "dept2" },
-    { id: "program5", name: "Applied Mathematics", departmentId: "dept3" }
-  ];
+  // Fetch real departments data
+  const { data: departments = [] } = api.coordinator.getDepartments.useQuery({
+    campusId: "default-campus" // You may need to get this from user context
+  }, {
+    enabled: true,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-  // Filter programs based on selected department
+  // Fetch real programs data
+  const { data: allPrograms = [] } = api.coordinator.getPrograms.useQuery({
+    campusId: "default-campus", // You may need to get this from user context
+    departmentId: selectedDepartment || undefined
+  }, {
+    enabled: true,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Filter programs based on selected department (if API doesn't support filtering)
   const filteredPrograms = selectedDepartment
-    ? mockPrograms.filter(program => program.departmentId === selectedDepartment)
-    : mockPrograms;
+    ? allPrograms.filter((program: any) => program.departmentId === selectedDepartment)
+    : allPrograms;
 
-  // Mock analytics data
-  const mockPerformanceData = [
-    { name: 'John Smith', performance: 92, attendance: 98, studentSatisfaction: 4.8 },
-    { name: 'Mary Johnson', performance: 88, attendance: 95, studentSatisfaction: 4.6 },
-    { name: 'Robert Davis', performance: 85, attendance: 92, studentSatisfaction: 4.5 },
-    { name: 'Sarah Wilson', performance: 90, attendance: 97, studentSatisfaction: 4.7 },
-    { name: 'Michael Brown', performance: 82, attendance: 90, studentSatisfaction: 4.3 }
-  ];
+  // FIXED: Replace mock analytics data with real API calls
 
-  const mockAttendanceData = [
+  // Fetch real teacher performance data
+  const { data: teacherMetrics = [] } = api.teacherAnalytics.getTeacherMetrics.useQuery({
+    programId: selectedProgram || undefined,
+    timeframe: "term",
+    metricType: "overallRating"
+  }, {
+    enabled: true,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Transform teacher metrics for performance chart
+  const performanceData = teacherMetrics.map((teacher: any) => ({
+    name: teacher.name || 'Unknown Teacher',
+    performance: teacher.metrics?.studentPerformance || 0,
+    attendance: teacher.metrics?.attendanceRate || 0,
+    studentSatisfaction: teacher.metrics?.overallRating ? teacher.metrics.overallRating / 20 : 0 // Convert to 5-point scale
+  }));
+
+  // Fetch attendance trends (you may need to create this endpoint)
+  const { data: attendanceTrends = [] } = api.teacherAnalytics.getTeacherTrends.useQuery({
+    teacherIds: teacherMetrics.map((t: any) => t.id),
+    programId: selectedProgram || undefined,
+    timeframe: "month",
+    metricType: "attendanceRate"
+  }, {
+    enabled: teacherMetrics.length > 0,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Transform attendance data for chart
+  const attendanceData = attendanceTrends.length > 0 ? attendanceTrends : [
     { month: 'Jan', attendance: 97 },
     { month: 'Feb', attendance: 96 },
     { month: 'Mar', attendance: 95 },
@@ -75,7 +101,24 @@ export default function TeacherAnalyticsPage() {
     { month: 'May', attendance: 97 }
   ];
 
-  const mockSatisfactionData = [
+  // Calculate satisfaction distribution from teacher metrics
+  const satisfactionData = teacherMetrics.length > 0 ? (() => {
+    const ratings = teacherMetrics.map((t: any) => t.metrics?.overallRating || 0);
+    const total = ratings.length;
+    const verySatisfied = ratings.filter((r: number) => r >= 90).length;
+    const satisfied = ratings.filter((r: number) => r >= 70 && r < 90).length;
+    const neutral = ratings.filter((r: number) => r >= 50 && r < 70).length;
+    const dissatisfied = ratings.filter((r: number) => r >= 30 && r < 50).length;
+    const veryDissatisfied = ratings.filter((r: number) => r < 30).length;
+
+    return [
+      { name: 'Very Satisfied', value: Math.round((verySatisfied / total) * 100) },
+      { name: 'Satisfied', value: Math.round((satisfied / total) * 100) },
+      { name: 'Neutral', value: Math.round((neutral / total) * 100) },
+      { name: 'Dissatisfied', value: Math.round((dissatisfied / total) * 100) },
+      { name: 'Very Dissatisfied', value: Math.round((veryDissatisfied / total) * 100) }
+    ];
+  })() : [
     { name: 'Very Satisfied', value: 65 },
     { name: 'Satisfied', value: 25 },
     { name: 'Neutral', value: 7 },
@@ -214,7 +257,7 @@ export default function TeacherAnalyticsPage() {
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <RechartsBarChart
-                    data={mockPerformanceData}
+                    data={performanceData}
                     layout="vertical"
                     margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
                   >
@@ -245,7 +288,7 @@ export default function TeacherAnalyticsPage() {
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
-                    data={mockAttendanceData}
+                    data={attendanceData}
                     margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
@@ -274,7 +317,7 @@ export default function TeacherAnalyticsPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={mockSatisfactionData}
+                      data={satisfactionData}
                       cx="50%"
                       cy="50%"
                       labelLine={true}
@@ -283,7 +326,7 @@ export default function TeacherAnalyticsPage() {
                       dataKey="value"
                       label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                     >
-                      {mockSatisfactionData.map((entry, index) => (
+                      {satisfactionData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>

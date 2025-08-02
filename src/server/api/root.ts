@@ -98,6 +98,7 @@ import { classPerformanceRouter } from "./routers/class-performance";
 import { studentAssistantRouter } from "./routers/student-assistant";
 import { teacherAssistantRouter } from "./routers/teacher-assistant";
 import { learningOutcomeRouter } from "./routers/learning-outcome";
+import { learningPatternsRouter } from "./routers/learning-patterns";
 
 // Bloom's Taxonomy Routers
 import { bloomRouter, masteryRouter, rubricRouter } from "@/features/bloom/api";
@@ -237,6 +238,9 @@ export const appRouter = createTRPCRouter({
 
   // Social Wall Router
   socialWall: socialWallRouter,
+
+  // Learning Patterns Router
+  learningPatterns: learningPatternsRouter,
 });
 
 // export type definition of API

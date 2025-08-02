@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -33,19 +33,19 @@ export function BloomsTeacherDashboard({
   const [selectedClassId, setSelectedClassId] = useState(classId || '');
 
   // Get teacher's classes
-  const { data: teacherClasses, isLoading: isLoadingClasses } = api.teacher.getTeacherClasses.useQuery({
+  const { data: teacherClasses, isLoading: isLoadingClasses, refetch: refetchClasses } = api.teacher.getTeacherClasses.useQuery({
     teacherId
   });
 
   // Get class performance data if a class is selected
-  const { data: classPerformance, isLoading: isLoadingPerformance } = api.bloomsAnalytics.getClassPerformance.useQuery({
+  const { data: classPerformance, isLoading: isLoadingPerformance, refetch: refetchPerformance } = api.bloomsAnalytics.getClassPerformance.useQuery({
     classId: selectedClassId
   }, {
     enabled: !!selectedClassId
   });
 
   // Get recent assessments for the selected class
-  const { data: recentAssessments, isLoading: isLoadingAssessments } = api.assessment.listByClass.useQuery({
+  const { data: recentAssessments, isLoading: isLoadingAssessments, refetch: refetchAssessments } = api.assessment.listByClass.useQuery({
     classId: selectedClassId,
     page: 1,
     pageSize: 5,
@@ -54,6 +54,34 @@ export function BloomsTeacherDashboard({
   }, {
     enabled: !!selectedClassId
   });
+
+  // FIXED: Add real-time event listeners for consistent Bloom's dashboard updates
+  useEffect(() => {
+    const handleRealTimeUpdate = () => {
+      // Refresh Bloom's analytics data when real-time events occur
+      refetchClasses();
+      if (selectedClassId) {
+        refetchPerformance();
+        refetchAssessments();
+      }
+    };
+
+    // Add event listeners for real-time updates
+    if (typeof window !== 'undefined') {
+      window.addEventListener('activity-submitted', handleRealTimeUpdate);
+      window.addEventListener('dashboard-update-needed', handleRealTimeUpdate);
+      window.addEventListener('analytics-refresh-needed', handleRealTimeUpdate);
+    }
+
+    // Cleanup event listeners
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('activity-submitted', handleRealTimeUpdate);
+        window.removeEventListener('dashboard-update-needed', handleRealTimeUpdate);
+        window.removeEventListener('analytics-refresh-needed', handleRealTimeUpdate);
+      }
+    };
+  }, [refetchClasses, refetchPerformance, refetchAssessments, selectedClassId]);
 
   // Handle class selection
   const handleClassChange = (value: string) => {

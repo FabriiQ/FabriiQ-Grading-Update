@@ -35,14 +35,14 @@ export const teacherAnalyticsRouter = createTRPCRouter({
       const { teacherId, courseId, programId, timeframe, metricType } = input;
 
       try {
-        // Use advanced caching system for teacher metrics
-        return await ProcedureCacheHelpers.cacheTeacherMetrics(
-          `${teacherId || 'all'}-${courseId || 'all'}-${programId || 'all'}-${timeframe}-${metricType}`,
-          async () => {
-            // Test database connection first
-            await ctx.prisma.$queryRaw`SELECT 1`;
-            // If a specific teacher is requested
-            if (teacherId) {
+        console.log("Getting teacher metrics for:", { teacherId, courseId, programId, timeframe, metricType });
+
+        // Test database connection first
+        await ctx.prisma.$queryRaw`SELECT 1`;
+
+        // If a specific teacher is requested
+        if (teacherId) {
+          console.log("Fetching specific teacher:", teacherId);
           const teacher = await prisma.teacherProfile.findUnique({
             where: { id: teacherId },
             include: {
@@ -80,11 +80,14 @@ export const teacherAnalyticsRouter = createTRPCRouter({
           });
 
           if (!teacher) {
+            console.log("Teacher not found for ID:", teacherId);
             throw new TRPCError({
               code: "NOT_FOUND",
               message: "Teacher not found",
             });
           }
+
+          console.log("Found teacher:", teacher.id, "with", teacher.classesAsTeacher.length, "classes");
 
           return {
             id: teacher.id,
@@ -239,8 +242,6 @@ export const teacherAnalyticsRouter = createTRPCRouter({
             })),
           };
         });
-          }
-        );
       } catch (error) {
         console.error("Error fetching teacher metrics:", error);
 

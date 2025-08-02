@@ -13,13 +13,14 @@ export const metadata: Metadata = {
 };
 
 export default async function CampusAdminDashboardPage() {
-  try {
-    const session = await getSessionCache();
+  const session = await getSessionCache();
 
-    if (!session?.user?.id) {
-      logger.debug('No session found for campus admin page, redirecting to login');
-      return redirect("/login");
-    }
+  if (!session?.user?.id) {
+    logger.debug('No session found for campus admin page, redirecting to login');
+    redirect("/login");
+  }
+
+  try {
 
     // Get user details from database
     const user = await prisma.user.findUnique({
@@ -41,7 +42,7 @@ export default async function CampusAdminDashboardPage() {
 
     if (!user) {
       logger.debug('User not found for campus admin page, redirecting to login');
-      return redirect("/login");
+      redirect("/login");
     }
 
     // Check if user has appropriate role
@@ -50,7 +51,7 @@ export default async function CampusAdminDashboardPage() {
         userId: user.id,
         userType: user.userType
       });
-      return redirect("/unauthorized");
+      redirect("/unauthorized");
     }
 
     // Determine which campus to show
@@ -168,6 +169,7 @@ export default async function CampusAdminDashboardPage() {
     );
   } catch (error) {
     logger.error("Error in campus admin page:", { error });
-    return redirect("/login");
+    // Don't redirect on error, show error page instead
+    throw error;
   }
-} 
+}

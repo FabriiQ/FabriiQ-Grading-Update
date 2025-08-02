@@ -71,6 +71,30 @@ export function TeacherDashboardContent({ campusId, campusName, teacherId }: Tea
     }
   };
 
+  // FIXED: Add real-time event listeners for consistent teacher dashboard updates
+  React.useEffect(() => {
+    const handleRealTimeUpdate = () => {
+      // Refresh teacher dashboard data when real-time events occur
+      refreshAllData();
+    };
+
+    // Add event listeners for real-time updates
+    if (typeof window !== 'undefined') {
+      window.addEventListener('activity-submitted', handleRealTimeUpdate);
+      window.addEventListener('dashboard-update-needed', handleRealTimeUpdate);
+      window.addEventListener('analytics-refresh-needed', handleRealTimeUpdate);
+    }
+
+    // Cleanup event listeners
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('activity-submitted', handleRealTimeUpdate);
+        window.removeEventListener('dashboard-update-needed', handleRealTimeUpdate);
+        window.removeEventListener('analytics-refresh-needed', handleRealTimeUpdate);
+      }
+    };
+  }, [refetchMetrics]);
+
   // Fetch teacher's classes using the correct API endpoint
   const {
     data: teacherClassesData = [],

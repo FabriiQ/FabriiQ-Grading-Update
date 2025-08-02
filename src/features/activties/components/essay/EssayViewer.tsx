@@ -28,6 +28,8 @@ import { BloomsTaxonomyBadge } from '@/features/bloom/components/taxonomy/Blooms
 import { EssayActivity, EssaySubmissionData } from '../../models/essay';
 import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
 import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
+import { type AchievementConfig } from '../achievement/AchievementConfigEditor';
+import { getAchievementConfig } from '../../utils/achievement-utils';
 import { cn } from '@/lib/utils';
 
 interface EssayViewerProps {
@@ -40,6 +42,7 @@ interface EssayViewerProps {
   onSubmit?: (submissionData: EssaySubmissionData) => Promise<void>;
   onPreview?: (content: string) => void;
   className?: string;
+  achievementConfig?: AchievementConfig; // Achievement configuration for points and rewards
 }
 
 export function EssayViewer({
@@ -51,7 +54,8 @@ export function EssayViewer({
   onSave,
   onSubmit,
   onPreview,
-  className
+  className,
+  achievementConfig
 }: EssayViewerProps) {
   // Memory leak prevention
   const { isMounted } = useMemoryLeakPrevention('essay-viewer');
@@ -67,6 +71,9 @@ export function EssayViewer({
   const [timeSpent, setTimeSpent] = useState(0);
   const [revisionCount, setRevisionCount] = useState(0);
   const [startTime] = useState(new Date());
+
+  // Get achievement configuration (use provided config or extract from activity)
+  const finalAchievementConfig = achievementConfig || getAchievementConfig(activity);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
@@ -452,6 +459,7 @@ export function EssayViewer({
               }}
               showTryAgain={false}
               className="flex items-center gap-2"
+              achievementConfig={finalAchievementConfig}
             >
               <CheckCircle className="h-4 w-4" />
               Submit Essay

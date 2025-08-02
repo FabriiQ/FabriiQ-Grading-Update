@@ -1,9 +1,9 @@
-import { 
-  Home, 
-  Users, 
-  Calendar, 
-  BookOpen, 
-  ClipboardList, 
+import {
+  Home,
+  Users,
+  Calendar,
+  BookOpen,
+  ClipboardList,
   MessageSquare,
   Settings,
   FileText

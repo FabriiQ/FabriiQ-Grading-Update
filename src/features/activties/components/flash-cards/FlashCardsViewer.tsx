@@ -11,6 +11,8 @@ import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
 import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
+import { type AchievementConfig } from '../achievement/AchievementConfigEditor';
+import { getAchievementConfig } from '../../utils/achievement-utils';
 
 // Helper function to shuffle an array (Fisher-Yates algorithm)
 const shuffleArray = <T extends unknown>(array: T[]): T[] => {
@@ -163,6 +165,7 @@ export interface FlashCardsViewerProps {
   onProgress?: (progress: number) => void;
   className?: string;
   submitButton?: React.ReactNode; // Universal submit button from parent
+  achievementConfig?: AchievementConfig; // Achievement configuration for points and rewards
 }
 
 /**

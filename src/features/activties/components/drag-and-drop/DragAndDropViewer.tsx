@@ -11,6 +11,8 @@ import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
 import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
+import { type AchievementConfig } from '../achievement/AchievementConfigEditor';
+import { getAchievementConfig } from '../../utils/achievement-utils';
 import { ArrowDown } from 'lucide-react';
 
 // Animation styles
@@ -113,6 +115,7 @@ export interface DragAndDropViewerProps {
   onProgress?: (progress: number) => void;
   className?: string;
   submitButton?: React.ReactNode; // Universal submit button from parent
+  achievementConfig?: AchievementConfig; // Achievement configuration for points and rewards
 }
 
 /**
@@ -133,10 +136,14 @@ export const DragAndDropViewer: React.FC<DragAndDropViewerProps> = ({
   onSubmit,
   onProgress,
   className,
-  submitButton
+  submitButton,
+  achievementConfig
 }) => {
   // Memory leak prevention
   const { isMounted } = useMemoryLeakPrevention('drag-and-drop-viewer');
+
+  // Get achievement configuration (use provided config or extract from activity)
+  const finalAchievementConfig = achievementConfig || getAchievementConfig(activity);
 
   // State for tracking answers and submission
   const [answers, setAnswers] = useState<Record<string, string>>({});

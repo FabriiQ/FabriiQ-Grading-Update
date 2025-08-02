@@ -12,25 +12,26 @@ export const metadata: Metadata = {
 };
 
 export default async function StudentClassesPage() {
+  logger.debug("Student classes page accessed");
+  const session = await getSessionCache();
+
+  if (!session?.user?.id) {
+    logger.warn("No session or user ID found in student classes");
+    redirect("/login");
+  }
+
+  // Check if user is a student (either CAMPUS_STUDENT or STUDENT)
+  const isStudent = session.user.userType === 'CAMPUS_STUDENT' || session.user.userType === 'STUDENT';
+
+  if (!isStudent) {
+    logger.warn("User is not a student", {
+      userId: session.user.id,
+      actualUserType: session.user.userType
+    });
+    redirect("/login");
+  }
+
   try {
-    logger.debug("Student classes page accessed");
-    const session = await getSessionCache();
-
-    if (!session?.user?.id) {
-      logger.warn("No session or user ID found in student classes");
-      return redirect("/login");
-    }
-
-    // Check if user is a student (either CAMPUS_STUDENT or STUDENT)
-    const isStudent = session.user.userType === 'CAMPUS_STUDENT' || session.user.userType === 'STUDENT';
-
-    if (!isStudent) {
-      logger.warn("User is not a student", {
-        userId: session.user.id,
-        actualUserType: session.user.userType
-      });
-      return redirect("/login");
-    }
 
     // Fetch real class data using Prisma
     logger.debug("Fetching student classes from database");
@@ -42,7 +43,7 @@ export default async function StudentClassesPage() {
 
     if (!studentProfile) {
       logger.warn("Student profile not found", { userId: session.user.id });
-      return redirect("/login");
+      redirect("/login");
     }
 
     // Find all active enrollments for this student

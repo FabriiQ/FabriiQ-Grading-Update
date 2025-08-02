@@ -15,6 +15,8 @@ import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
 import { Check, X } from 'lucide-react';
+import { type AchievementConfig } from '../achievement/AchievementConfigEditor';
+import { getAchievementConfig } from '../../utils/achievement-utils';
 
 export interface MultipleResponseViewerProps {
   activity: MultipleResponseActivity;
@@ -24,6 +26,7 @@ export interface MultipleResponseViewerProps {
   onProgress?: (progress: number) => void;
   className?: string;
   submitButton?: React.ReactNode; // Universal submit button from parent
+  achievementConfig?: AchievementConfig; // Achievement configuration for points and rewards
 }
 
 /**
@@ -43,10 +46,14 @@ export const MultipleResponseViewer: React.FC<MultipleResponseViewerProps> = ({
   onSubmit,
   onProgress,
   className,
-  submitButton
+  submitButton,
+  achievementConfig
 }) => {
   // Memory leak prevention
   const { isMounted } = useMemoryLeakPrevention('multiple-response-viewer');
+
+  // Get achievement configuration (use provided config or extract from activity)
+  const finalAchievementConfig = achievementConfig || getAchievementConfig(activity);
 
   // State for tracking selected answers and submission
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string[]>>({});
@@ -496,6 +503,7 @@ export const MultipleResponseViewer: React.FC<MultipleResponseViewerProps> = ({
           }}
           showTryAgain={true}
           className="min-w-[140px]"
+          achievementConfig={finalAchievementConfig}
         >
           Submit Multiple Response
         </UniversalActivitySubmit>

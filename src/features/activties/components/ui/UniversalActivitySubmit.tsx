@@ -7,6 +7,7 @@ import { Loader2, CheckCircle, AlertCircle, RotateCcw, Award, Plus, Zap } from '
 import { cn } from '@/lib/utils';
 import { api } from '@/utils/api';
 import { motion, AnimatePresence } from 'framer-motion';
+import { type AchievementConfig } from '../achievement/AchievementConfigEditor';
 
 /**
  * Configuration for activity submission
@@ -82,6 +83,9 @@ export interface UniversalActivitySubmitProps {
   showPointsAnimation?: boolean;
   celebrationLevel?: 'minimal' | 'standard' | 'enthusiastic';
   customSuccessMessage?: string;
+
+  // Achievement configuration
+  achievementConfig?: AchievementConfig;
 }
 
 /**
@@ -117,6 +121,7 @@ export function UniversalActivitySubmit({
   showPointsAnimation = true,
   celebrationLevel = 'standard',
   customSuccessMessage,
+  achievementConfig,
 }: UniversalActivitySubmitProps) {
   const { toast } = useToast();
   
@@ -172,6 +177,78 @@ export function UniversalActivitySubmit({
   }, [config.answers, validateAnswers]);
 
   /**
+   * Calculate achievements and points based on configuration
+   */
+  const calculateAchievements = useCallback((submissionResult: any, timeSpent: number) => {
+    if (!achievementConfig?.enableAchievements) {
+      return {
+        achievements: [],
+        pointsAwarded: 0,
+        celebrationData: null
+      };
+    }
+
+    const achievements: Array<{
+      id: string;
+      name: string;
+      description: string;
+      points: number;
+      type: string;
+    }> = [];
+
+    // Calculate base points
+    const basePoints = Math.floor(achievementConfig.basePoints * achievementConfig.customPointsMultiplier);
+    let totalPoints = basePoints;
+
+    // Check for perfect score achievement
+    if (achievementConfig.enablePerfectScoreAchievement && submissionResult.score === submissionResult.maxScore) {
+      achievements.push({
+        id: `perfect-score-${Date.now()}`,
+        name: 'Perfect Score!',
+        description: 'Achieved 100% on this activity',
+        points: achievementConfig.bonusPointsForPerfectScore,
+        type: 'perfect_score'
+      });
+      totalPoints += achievementConfig.bonusPointsForPerfectScore;
+    }
+
+    // Check for speed achievement
+    if (achievementConfig.enableSpeedAchievement && timeSpent <= achievementConfig.speedBonusThreshold) {
+      achievements.push({
+        id: `speed-bonus-${Date.now()}`,
+        name: 'Speed Demon!',
+        description: `Completed in under ${achievementConfig.speedBonusThreshold} seconds`,
+        points: achievementConfig.bonusPointsForSpeed,
+        type: 'speed_bonus'
+      });
+      totalPoints += achievementConfig.bonusPointsForSpeed;
+    }
+
+    // Check for first attempt achievement (assuming this is tracked in metadata)
+    if (achievementConfig.enableFirstAttemptAchievement && config.metadata?.attemptNumber === 1) {
+      achievements.push({
+        id: `first-attempt-${Date.now()}`,
+        name: 'First Try Success!',
+        description: 'Completed successfully on the first attempt',
+        points: achievementConfig.bonusPointsForFirstAttempt,
+        type: 'first_attempt'
+      });
+      totalPoints += achievementConfig.bonusPointsForFirstAttempt;
+    }
+
+    return {
+      achievements,
+      pointsAwarded: totalPoints,
+      celebrationData: {
+        level: achievementConfig.celebrationLevel,
+        showAnimation: achievementConfig.enablePointsAnimation,
+        totalPoints,
+        achievements
+      }
+    };
+  }, [achievementConfig, config.metadata]);
+
+  /**
    * Handle activity submission with proper error handling and memory leak prevention
    */
   const handleSubmit = useCallback(async () => {
@@ -215,18 +292,24 @@ export function UniversalActivitySubmit({
       
       if (!mountedRef.current) return;
       
+      // UPDATED: Calculate achievements based on configuration
+      const achievementData = calculateAchievements(result, config.timeSpent || 0);
+
       // Process achievements and analytics in parallel (non-blocking)
-      const achievementsPromise = triggerAchievementsMutation.mutateAsync({
-        type: 'activity_completion',
-        title: `Activity Completed: ${config.activityType}`,
-        description: `Student completed ${config.activityType} activity`,
-        studentId: config.studentId,
-        total: result.score || 0
-      }).catch(error => {
-        console.warn('Achievement processing failed:', error);
-        return [];
-      });
-      
+      const achievementsPromise = achievementData.achievements.length > 0
+        ? triggerAchievementsMutation.mutateAsync({
+            type: 'activity_completion',
+            title: `Activity Completed: ${config.activityType}`,
+            description: `Student completed ${config.activityType} activity`,
+            studentId: config.studentId,
+            total: achievementData.pointsAwarded,
+            achievements: achievementData.achievements
+          }).catch(error => {
+            console.warn('Achievement processing failed:', error);
+            return achievementData.achievements; // Use calculated achievements as fallback
+          })
+        : Promise.resolve(achievementData.achievements);
+
       const analyticsPromise = updateAnalyticsMutation.mutateAsync({
         userId: config.studentId,
         category: 'activity',
@@ -235,49 +318,55 @@ export function UniversalActivitySubmit({
           activityId: config.activityId,
           activityType: config.activityType,
           score: result.score,
-          maxScore: 100, // Default max score
+          maxScore: result.maxScore || 100,
           timeSpent: config.timeSpent,
-          submissionData: config.answers
+          submissionData: config.answers,
+          achievementConfig: achievementConfig,
+          pointsAwarded: achievementData.pointsAwarded
         }
       }).catch(error => {
         console.warn('Analytics update failed:', error);
       });
-      
+
       // Wait for achievements and analytics
       const [achievements] = await Promise.all([achievementsPromise, analyticsPromise]);
       
       if (!mountedRef.current) return;
       
-      // Create final result
+      // UPDATED: Create final result with calculated achievement data
       const finalResult: SubmissionResult = {
         success: true,
         submissionId: result.id,
         score: result.score ?? 0,
-        maxScore: 100, // Default max score
+        maxScore: result.maxScore || 100,
         feedback: result.feedback ?? '',
-        achievements: Array.isArray(achievements) ? achievements : []
+        achievements: Array.isArray(achievements) ? achievements : [],
+        pointsAwarded: achievementData.pointsAwarded
       };
-      
+
       // Update component state
       setSubmissionResult(finalResult);
       setHasSubmitted(true);
       setLastSubmissionTime(new Date());
 
-      // Handle achievements and points
-      if (finalResult.achievements && finalResult.achievements.length > 0 && showAchievements) {
+      // UPDATED: Handle achievements and points based on configuration
+      if (finalResult.achievements && finalResult.achievements.length > 0 && showAchievements && achievementConfig?.enableAchievements) {
         setAchievementsToShow(finalResult.achievements);
-        setShowCelebration(true);
 
-        // Calculate total points earned
-        const totalPoints = finalResult.achievements.reduce((sum, achievement) => sum + achievement.points, 0);
-        setPointsEarned(totalPoints + (finalResult.pointsAwarded || 0));
+        // Show celebration based on configuration
+        if (achievementConfig.enablePointsAnimation) {
+          setShowCelebration(true);
+        }
+
+        // Use calculated points from achievement data
+        setPointsEarned(achievementData.pointsAwarded);
       } else {
-        setPointsEarned(finalResult.pointsAwarded || 0);
+        setPointsEarned(achievementData.pointsAwarded);
       }
 
-      // Show enhanced success message
+      // UPDATED: Show enhanced success message with achievement-based points
       const successMessage = customSuccessMessage ||
-        `Your submission has been recorded successfully! ${finalResult.score !== undefined ? `Score: ${finalResult.score}/${finalResult.maxScore}` : ''}${finalResult.pointsAwarded ? ` (+${finalResult.pointsAwarded} points)` : ''}`;
+        `Your submission has been recorded successfully! ${finalResult.score !== undefined ? `Score: ${finalResult.score}/${finalResult.maxScore}` : ''}${achievementData.pointsAwarded ? ` (+${achievementData.pointsAwarded} points)` : ''}`;
 
       toast({
         title: 'Activity Submitted',
@@ -287,7 +376,29 @@ export function UniversalActivitySubmit({
 
       // Call completion handler
       onSubmissionComplete?.(finalResult);
-      
+
+      // FIXED: Trigger real-time dashboard updates for consistent data propagation
+      if (typeof window !== 'undefined') {
+        // Dispatch custom events for real-time dashboard updates
+        window.dispatchEvent(new CustomEvent('activity-submitted', {
+          detail: {
+            studentId: config.studentId,
+            activityId: config.activityId,
+            classId: config.classId,
+            score: finalResult.score,
+            maxScore: finalResult.maxScore,
+            pointsEarned: pointsEarned,
+            achievements: finalResult.achievements,
+            timestamp: new Date().toISOString()
+          }
+        }));
+
+        // Trigger dashboard refresh events
+        window.dispatchEvent(new CustomEvent('dashboard-update-needed'));
+        window.dispatchEvent(new CustomEvent('analytics-refresh-needed'));
+        window.dispatchEvent(new CustomEvent('leaderboard-update-needed'));
+      }
+
       // Auto-reset if enabled
       if (autoReset && showTryAgain && mountedRef.current) {
         resetTimeoutRef.current = setTimeout(() => {

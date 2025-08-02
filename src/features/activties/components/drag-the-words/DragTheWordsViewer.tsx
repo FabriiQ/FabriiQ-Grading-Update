@@ -9,6 +9,8 @@ import { QuestionHint } from '../ui/QuestionHint';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
 import { cn } from '@/lib/utils';
+import { type AchievementConfig } from '../achievement/AchievementConfigEditor';
+import { getAchievementConfig } from '../../utils/achievement-utils';
 
 // Typing animation styles
 const dragAnimationStyles = `

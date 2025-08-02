@@ -1,33 +1,32 @@
 /**
  * AI Essay Grading Service
- * 
+ *
  * Complete implementation of AI-powered essay grading with
- * OpenAI integration, comprehensive analysis, and quality assurance.
+ * Google Generative AI (Gemini) integration, comprehensive analysis, and quality assurance.
  */
 
-import OpenAI from 'openai';
-import { 
-  EssayGradingResult, 
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import {
+  EssayGradingResult,
   EssayGradingRequest,
   EssayAIAnalysis,
-  EssayGradingMethod 
+  EssayGradingMethod
 } from '@/types/essay-grading';
 import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 export class AIEssayGradingService {
-  private openai: OpenAI;
-  private readonly MODEL = 'gpt-4-turbo-preview';
+  private genAI: GoogleGenerativeAI;
+  private readonly MODEL = 'gemini-2.0-flash';
   private readonly MAX_TOKENS = 4000;
   private readonly TEMPERATURE = 0.3; // Lower for more consistent grading
 
   constructor() {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY environment variable is required');
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+    if (!apiKey) {
+      throw new Error('GOOGLE_API_KEY environment variable is required');
     }
-    
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+
+    this.genAI = new GoogleGenerativeAI(apiKey);
   }
 
   /**
@@ -94,24 +93,22 @@ export class AIEssayGradingService {
     const prompt = this.buildAnalysisPrompt(essayContent, maxScore, gradingCriteria);
 
     try {
-      const response = await this.openai.chat.completions.create({
+      const model = this.genAI.getGenerativeModel({
         model: this.MODEL,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert essay grader with deep knowledge of writing assessment, Bloom\'s taxonomy, and educational standards. Provide detailed, constructive analysis.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: this.MAX_TOKENS,
-        temperature: this.TEMPERATURE,
-        response_format: { type: 'json_object' }
+        generationConfig: {
+          temperature: this.TEMPERATURE,
+          maxOutputTokens: this.MAX_TOKENS,
+          responseMimeType: 'application/json',
+        }
       });
 
-      const analysisText = response.choices[0]?.message?.content;
+      const systemPrompt = 'You are an expert essay grader with deep knowledge of writing assessment, Bloom\'s taxonomy, and educational standards. Provide detailed, constructive analysis in valid JSON format.';
+      const fullPrompt = `${systemPrompt}\n\n${prompt}`;
+
+      const result = await model.generateContent(fullPrompt);
+      const response = await result.response;
+      const analysisText = response.text();
+
       if (!analysisText) {
         throw new Error('No analysis received from AI');
       }

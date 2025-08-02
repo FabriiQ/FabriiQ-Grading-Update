@@ -1,11 +1,11 @@
 /**
  * AI-Powered Cognitive Analysis Service
- * 
+ *
  * Automatically detects Bloom's taxonomy levels from student work,
  * tracks cognitive progression, and provides learning insights.
  */
 
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PrismaClient } from '@prisma/client';
 import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
@@ -50,18 +50,17 @@ export interface LearningPattern {
 }
 
 export class CognitiveAnalysisService {
-  private openai: OpenAI;
+  private genAI: GoogleGenerativeAI;
   private prisma: PrismaClient;
-  private readonly MODEL = 'gpt-4-turbo-preview';
+  private readonly MODEL = 'gemini-2.0-flash';
 
   constructor(prisma: PrismaClient) {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY environment variable is required');
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+    if (!apiKey) {
+      throw new Error('GOOGLE_API_KEY environment variable is required');
     }
-    
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+
+    this.genAI = new GoogleGenerativeAI(apiKey);
     this.prisma = prisma;
   }
 
@@ -76,24 +75,22 @@ export class CognitiveAnalysisService {
     try {
       const prompt = this.buildCognitiveAnalysisPrompt(studentWork, activityType, expectedLevel);
 
-      const response = await this.openai.chat.completions.create({
+      const model = this.genAI.getGenerativeModel({
         model: this.MODEL,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert educational psychologist specializing in Bloom\'s taxonomy and cognitive assessment. Analyze student work to determine demonstrated cognitive levels with high accuracy.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: 2000,
-        temperature: 0.2, // Lower temperature for more consistent analysis
-        response_format: { type: 'json_object' }
+        generationConfig: {
+          temperature: 0.2, // Lower temperature for more consistent analysis
+          maxOutputTokens: 2000,
+          responseMimeType: 'application/json',
+        }
       });
 
-      const analysisText = response.choices[0]?.message?.content;
+      const systemPrompt = 'You are an expert educational psychologist specializing in Bloom\'s taxonomy and cognitive assessment. Analyze student work to determine demonstrated cognitive levels with high accuracy. Provide your response in valid JSON format.';
+      const fullPrompt = `${systemPrompt}\n\n${prompt}`;
+
+      const result = await model.generateContent(fullPrompt);
+      const response = await result.response;
+      const analysisText = response.text();
+
       if (!analysisText) {
         throw new Error('No analysis received from AI');
       }

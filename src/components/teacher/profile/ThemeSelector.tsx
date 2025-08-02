@@ -3,7 +3,7 @@
 import React from 'react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
-import { Moon, Sun, Monitor } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,12 +17,13 @@ interface ThemeSelectorProps {
 }
 
 /**
- * ThemeSelector component for toggling between light, dark, and system themes
+ * ThemeSelector component for toggling between light and dark themes
  *
  * Features:
  * - Visual indicators for current theme
  * - Dropdown menu for theme selection
  * - Saves preference to local storage
+ * - No system theme to prevent conflicts with user selection
  */
 export function ThemeSelector({ className }: ThemeSelectorProps) {
   const { theme, setTheme } = useTheme();
@@ -67,19 +68,7 @@ export function ThemeSelector({ className }: ThemeSelectorProps) {
             <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary"></span>
           )}
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => setTheme('system')}
-          className={cn(
-            "flex items-center gap-2",
-            theme === 'system' && "font-medium"
-          )}
-        >
-          <Monitor className="h-4 w-4" />
-          <span>System</span>
-          {theme === 'system' && (
-            <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary"></span>
-          )}
-        </DropdownMenuItem>
+
       </DropdownMenuContent>
     </DropdownMenu>
   );

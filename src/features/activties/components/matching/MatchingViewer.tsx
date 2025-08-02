@@ -18,6 +18,8 @@ import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
 import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
+import { type AchievementConfig } from '../achievement/AchievementConfigEditor';
+import { getAchievementConfig } from '../../utils/achievement-utils';
 
 // Drag and drop animation styles with brand colors
 const dragDropAnimationStyles = `
@@ -137,6 +139,7 @@ export interface MatchingViewerProps {
   onProgress?: (progress: number) => void;
   className?: string;
   submitButton?: React.ReactNode; // Universal submit button from parent
+  achievementConfig?: AchievementConfig; // Achievement configuration for points and rewards
 }
 
 /**
@@ -156,10 +159,14 @@ export const MatchingViewer: React.FC<MatchingViewerProps> = ({
   onSubmit,
   onProgress,
   className,
-  submitButton
+  submitButton,
+  achievementConfig
 }) => {
   // Memory leak prevention
   const { isMounted } = useMemoryLeakPrevention('matching-viewer');
+
+  // Get achievement configuration (use provided config or extract from activity)
+  const finalAchievementConfig = achievementConfig || getAchievementConfig(activity);
 
   // State for tracking matches and submission
   const [matches, setMatches] = useState<Record<string, string>>({});
@@ -839,6 +846,7 @@ export const MatchingViewer: React.FC<MatchingViewerProps> = ({
           }}
           showTryAgain={true}
           className="min-w-[140px]"
+          achievementConfig={finalAchievementConfig}
         >
           Submit Matches
         </UniversalActivitySubmit>

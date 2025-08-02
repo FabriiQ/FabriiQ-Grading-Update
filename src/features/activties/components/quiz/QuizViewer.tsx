@@ -12,6 +12,8 @@ import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
 import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { useQuestionUsage } from '@/features/question-bank/hooks';
 import { cn } from '@/lib/utils';
+import { type AchievementConfig } from '../achievement/AchievementConfigEditor';
+import { getAchievementConfig } from '../../utils/achievement-utils';
 
 // Animation styles
 const quizAnimationStyles = `
@@ -70,6 +72,7 @@ export interface QuizViewerProps {
   submitButton?: React.ReactNode; // Universal submit button from parent
   studentId?: string; // Student ID for tracking question usage
   classId?: string; // Class ID for tracking question usage
+  achievementConfig?: AchievementConfig; // Achievement configuration for points and rewards
 }
 
 /**
@@ -91,7 +94,8 @@ export const QuizViewer: React.FC<QuizViewerProps> = ({
   className,
   submitButton,
   studentId,
-  classId
+  classId,
+  achievementConfig
 }) => {
   // Memory leak prevention
   const { isMounted } = useMemoryLeakPrevention('quiz-viewer');
@@ -111,6 +115,9 @@ export const QuizViewer: React.FC<QuizViewerProps> = ({
   const [isTimerRunning, setIsTimerRunning] = useState(
     activity.settings?.showTimer && activity.settings.timeLimit ? true : false
   );
+
+  // Get achievement configuration (use provided config or extract from activity)
+  const finalAchievementConfig = achievementConfig || getAchievementConfig(activity);
 
   // Initialize analytics
   const analytics = useActivityAnalytics(activity.id, activity.activityType);
@@ -725,6 +732,7 @@ export const QuizViewer: React.FC<QuizViewerProps> = ({
             }}
             showTryAgain={true}
             className="min-w-[120px] min-h-[44px] px-6 py-3"
+            achievementConfig={finalAchievementConfig}
           >
             Submit Quiz
           </UniversalActivitySubmit>

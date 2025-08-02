@@ -115,6 +115,40 @@ export function RealTimeDashboard({
     refetch();
   }, [refetch]);
 
+  // FIXED: Add real-time event listeners for consistent dashboard updates
+  useEffect(() => {
+    const handleActivitySubmitted = () => {
+      // Immediately refresh analytics data when activity is submitted
+      refetch();
+    };
+
+    const handleDashboardUpdateNeeded = () => {
+      // Refresh data when dashboard update is needed
+      refetch();
+    };
+
+    const handleAnalyticsRefreshNeeded = () => {
+      // Refresh analytics data
+      refetch();
+    };
+
+    // Add event listeners
+    if (typeof window !== 'undefined') {
+      window.addEventListener('activity-submitted', handleActivitySubmitted);
+      window.addEventListener('dashboard-update-needed', handleDashboardUpdateNeeded);
+      window.addEventListener('analytics-refresh-needed', handleAnalyticsRefreshNeeded);
+    }
+
+    // Cleanup event listeners
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('activity-submitted', handleActivitySubmitted);
+        window.removeEventListener('dashboard-update-needed', handleDashboardUpdateNeeded);
+        window.removeEventListener('analytics-refresh-needed', handleAnalyticsRefreshNeeded);
+      }
+    };
+  }, [refetch]);
+
   // Mark alert as read
   const markAlertAsRead = api.analytics.markAlertAsRead.useMutation({
     onSuccess: () => {

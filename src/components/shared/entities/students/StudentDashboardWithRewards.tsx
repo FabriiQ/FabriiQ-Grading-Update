@@ -174,12 +174,20 @@ export function StudentDashboardWithRewards(props: StudentDashboardProps) {
     window.addEventListener('reward-earned', handleRewardEarned);
     window.addEventListener('activity-completed', handleActivityCompleted);
     window.addEventListener('dashboard-update-needed', handleDashboardUpdateNeeded);
+    // FIXED: Add new real-time event listeners for consistent updates
+    window.addEventListener('activity-submitted', handleDashboardUpdateNeeded);
+    window.addEventListener('analytics-refresh-needed', handleDashboardUpdateNeeded);
+    window.addEventListener('leaderboard-update-needed', handleDashboardUpdateNeeded);
 
     // Clean up event listeners
     return () => {
       window.removeEventListener('reward-earned', handleRewardEarned);
       window.removeEventListener('activity-completed', handleActivityCompleted);
       window.removeEventListener('dashboard-update-needed', handleDashboardUpdateNeeded);
+      // FIXED: Clean up new event listeners
+      window.removeEventListener('activity-submitted', handleDashboardUpdateNeeded);
+      window.removeEventListener('analytics-refresh-needed', handleDashboardUpdateNeeded);
+      window.removeEventListener('leaderboard-update-needed', handleDashboardUpdateNeeded);
     };
   }, [toast, refetchPoints, refetchLevel, refetchAchievements, refetchLeaderboard]);
 

@@ -329,16 +329,16 @@ export class LearningPatternRecognitionService {
   }> {
     try {
       const profile = await this.analyzeStudentLearningPatterns(studentId);
-      
+
       // Generate activity recommendations based on learning profile
       const recommendedActivities = this.generateActivityRecommendations(profile, subject, currentTopic);
-      
+
       // Determine learning supports needed
       const learningSupports = this.determineLearningSupports(profile);
-      
+
       // Recommend pacing
       const pacing = this.recommendPacing(profile);
-      
+
       // Suggest assessment strategy
       const assessmentStrategy = this.suggestAssessmentStrategy(profile);
 
@@ -352,6 +352,47 @@ export class LearningPatternRecognitionService {
       console.error('Error generating adaptive content:', error);
       throw new Error('Failed to generate adaptive content');
     }
+  }
+
+  /**
+   * Get class learning patterns (used by router)
+   */
+  async getClassLearningPatterns(classId: string, timeframe?: string) {
+    // Get all students in the class
+    const classStudents = await this.prisma.studentEnrollment.findMany({
+      where: { classId },
+      include: {
+        student: {
+          include: {
+            user: {
+              select: { id: true, name: true }
+            }
+          }
+        }
+      }
+    });
+
+    // Analyze patterns for each student
+    const studentPatterns = await Promise.all(
+      classStudents.map(async (enrollment) => {
+        const patterns = await this.analyzeStudentLearningPatterns(enrollment.student.id);
+        return {
+          studentId: enrollment.student.id,
+          studentName: enrollment.student.user.name,
+          patterns
+        };
+      })
+    );
+
+    return {
+      classId,
+      studentCount: classStudents.length,
+      studentPatterns,
+      classAverages: {
+        consistencyScore: studentPatterns.reduce((sum, s) => sum + s.patterns.performancePatterns.consistencyScore, 0) / studentPatterns.length,
+        riskFactorCount: studentPatterns.reduce((sum, s) => sum + s.patterns.riskFactors.length, 0) / studentPatterns.length
+      }
+    };
   }
 
   // Private helper methods

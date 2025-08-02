@@ -17,6 +17,8 @@ import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
 import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
+import { type AchievementConfig } from '../achievement/AchievementConfigEditor';
+import { getAchievementConfig } from '../../utils/achievement-utils';
 
 // Typing animation styles with brand colors
 const typingAnimationStyles = `
@@ -76,6 +78,7 @@ export interface FillInTheBlanksViewerProps {
   onProgress?: (progress: number) => void;
   className?: string;
   submitButton?: React.ReactNode; // Universal submit button from parent
+  achievementConfig?: AchievementConfig; // Achievement configuration for points and rewards
 }
 
 /**
@@ -95,10 +98,14 @@ export const FillInTheBlanksViewer: React.FC<FillInTheBlanksViewerProps> = ({
   onSubmit,
   onProgress,
   className,
-  submitButton
+  submitButton,
+  achievementConfig
 }) => {
   // Memory leak prevention
   const { isMounted } = useMemoryLeakPrevention('fill-in-the-blanks-viewer');
+
+  // Get achievement configuration (use provided config or extract from activity)
+  const finalAchievementConfig = achievementConfig || getAchievementConfig(activity);
 
   // State for tracking answers and submission
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -681,7 +688,7 @@ export const FillInTheBlanksViewer: React.FC<FillInTheBlanksViewerProps> = ({
             console.error('Fill in the Blanks submission error:', error);
           }}
           validateAnswers={(answers) => {
-            const filledCount = Object.values(answers).filter(v => v.trim().length > 0).length;
+            const filledCount = Object.values(answers).filter((v: unknown) => typeof v === 'string' && v.trim().length > 0).length;
             if (filledCount === 0) {
               return 'Please fill in at least one blank before submitting.';
             }
@@ -693,6 +700,7 @@ export const FillInTheBlanksViewer: React.FC<FillInTheBlanksViewerProps> = ({
           }}
           showTryAgain={true}
           className="px-8 py-3 text-lg"
+          achievementConfig={finalAchievementConfig}
         >
           Submit Fill in the Blanks
         </UniversalActivitySubmit>

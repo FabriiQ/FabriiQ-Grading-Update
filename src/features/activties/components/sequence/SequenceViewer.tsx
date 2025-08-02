@@ -18,6 +18,8 @@ import { MediaDisplay } from '../ui/MediaDisplay';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
+import { type AchievementConfig } from '../achievement/AchievementConfigEditor';
+import { getAchievementConfig } from '../../utils/achievement-utils';
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 
 // Sorting animation styles
@@ -106,6 +108,7 @@ export interface SequenceViewerProps {
   onProgress?: (progress: number) => void;
   className?: string;
   submitButton?: React.ReactNode; // Universal submit button from parent
+  achievementConfig?: AchievementConfig; // Achievement configuration for points and rewards
 }
 
 /**
@@ -125,10 +128,14 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
   onSubmit,
   onProgress,
   className,
-  submitButton
+  submitButton,
+  achievementConfig
 }) => {
   // Memory leak prevention
   const { isMounted } = useMemoryLeakPrevention('sequence-viewer');
+
+  // Get achievement configuration (use provided config or extract from activity)
+  const finalAchievementConfig = achievementConfig || getAchievementConfig(activity);
 
   // State for tracking sequences and submission
   const [sequences, setSequences] = useState<Record<string, string[]>>({});
@@ -717,6 +724,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
           }}
           showTryAgain={true}
           className="px-8 py-3 text-lg"
+          achievementConfig={finalAchievementConfig}
         >
           Submit Sequence
         </UniversalActivitySubmit>

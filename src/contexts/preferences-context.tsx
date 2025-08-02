@@ -14,7 +14,7 @@ interface PreferencesContextType {
 
 const defaultPreferences: Preferences = {
   sidebarCollapsed: false,
-  theme: 'system',
+  theme: 'light',
 };
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
