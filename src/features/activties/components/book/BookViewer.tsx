@@ -4,8 +4,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BookActivity, BookSection, BookCheckpoint } from '../../models/book';
 import { ReadingViewer } from '../reading/ReadingViewer';
 import AnimatedSubmitButton from '../ui/AnimatedSubmitButton';
+import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
+import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
 import { Loader2, CheckCircle, AlertCircle, BookOpen } from 'lucide-react';
 
@@ -32,9 +34,11 @@ const activityComponents: Record<string, any> = {
 export interface BookViewerProps {
   activity: BookActivity;
   mode?: 'student' | 'teacher';
+  studentId?: string; // Student ID for submission tracking
   onComplete?: (result: any) => void;
   onProgress?: (progress: number) => void;
   className?: string;
+  submitButton?: React.ReactNode; // Universal submit button from parent
 }
 
 /**
@@ -53,13 +57,20 @@ export interface BookViewerProps {
 export const BookViewer: React.FC<BookViewerProps> = ({
   activity,
   mode = 'student',
+  studentId,
   onComplete,
   onProgress,
-  className
+  className,
+  submitButton
 }) => {
+  // Memory leak prevention
+  const { isMounted } = useMemoryLeakPrevention('book-viewer');
+
   // State for tracking current section and completion
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [completedCheckpoints, setCompletedCheckpoints] = useState<Record<string, boolean>>({});
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
+  const [startTime] = useState(new Date());
   const [isLoadingActivity, setIsLoadingActivity] = useState(false);
   const [currentCheckpoint, setCurrentCheckpoint] = useState<BookCheckpoint | null>(null);
   const [embeddedActivity, setEmbeddedActivity] = useState<any>(null);
@@ -620,11 +631,47 @@ export const BookViewer: React.FC<BookViewerProps> = ({
         onProgress={onProgress}
         className="mb-8"
         submitButton={
-          <AnimatedSubmitButton
-            onClick={handleBookComplete}
+          <UniversalActivitySubmit
+            config={{
+              activityId: activity.id,
+              activityType: 'book',
+              studentId: studentId || 'anonymous',
+              answers: {
+                completedCheckpoints,
+                currentSection: currentSectionIndex,
+                checkpointResults: checkpointResult
+              },
+              timeSpent: Math.floor((Date.now() - startTime.getTime()) / 1000),
+              attemptNumber: 1,
+              metadata: {
+                startTime: startTime,
+                sectionsCount: activity.sections.length,
+                checkpointsCount: activity.sections.reduce((sum, s) => sum + s.checkpoints.length, 0),
+                completedCheckpointsCount: Object.keys(completedCheckpoints).length
+              }
+            }}
             disabled={!canProceedToNextSection()}
-            loading={false}
-            submitted={isCompleted}
+            onSubmissionComplete={(result) => {
+              if (!isMounted()) return;
+              setIsCompleted(true);
+              setSubmissionResult(result);
+
+              const completionResult = {
+                completed: true,
+                completedCheckpoints,
+                sectionsRead: activity.sections.length,
+                totalSections: activity.sections.length
+              };
+
+              onComplete?.(completionResult);
+            }}
+            onSubmissionError={(error) => {
+              console.error('Book submission error:', error);
+            }}
+            validateAnswers={(answers) => {
+              return canProceedToNextSection() ? true : 'Please complete all required checkpoints first.';
+            }}
+            showTryAgain={false}
             className={cn(
               "px-4 py-2 rounded-md min-h-[44px] transition-all",
               canProceedToNextSection()
@@ -635,7 +682,7 @@ export const BookViewer: React.FC<BookViewerProps> = ({
             {canProceedToNextSection()
               ? (isCompleted ? 'Book Completed' : 'Complete Book')
               : 'Complete All Checkpoints First'}
-          </AnimatedSubmitButton>
+          </UniversalActivitySubmit>
         }
       />
 

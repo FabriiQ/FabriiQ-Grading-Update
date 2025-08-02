@@ -262,17 +262,22 @@ export async function processActivitySubmission(
       );
     }
 
-    // Process rewards for activity completion
+    // Process rewards for activity completion (atomic operation)
     try {
-      const activityRewards = new ActivityRewardIntegration(prisma);
-      const rewardResult = await activityRewards.processActivityCompletion(
-        studentId,
+      const { UnifiedPointsService } = await import('@/features/activties/services/unified-points.service');
+      const pointsService = new UnifiedPointsService(prisma);
+
+      const rewardResult = await pointsService.awardActivityPoints(
         activityId,
+        studentId,
         {
-          gradePercentage: score !== null && gradingResult?.maxScore ?
-            Math.round((score / gradingResult.maxScore) * 100) : undefined,
+          score: score || undefined,
+          maxScore: gradingResult?.maxScore || activity.maxScore || 100,
           isGraded: activity.isGradable,
-          complexity: (activityContent?.complexity || 'medium') as 'low' | 'medium' | 'high'
+          activityType: activity.learningType,
+          purpose: activity.purpose,
+          complexity: (activityContent?.complexity || 'medium') as 'low' | 'medium' | 'high',
+          preventDuplicates: true, // Prevent race conditions
         }
       );
 
@@ -281,7 +286,7 @@ export async function processActivitySubmission(
         studentId,
         pointsAwarded: rewardResult.points,
         levelUp: rewardResult.levelUp,
-        achievementsUnlocked: rewardResult.achievements.length
+        calculation: rewardResult.calculation.calculation,
       });
     } catch (rewardError) {
       logger.error('Error processing activity rewards', {

@@ -27,6 +27,7 @@ import {
   ReadingViewer,
   VideoViewer,
   BookViewer,
+  EssayViewer, // ADDED: Essay activity viewer
   // Offline support
   OfflineIndicator,
   useOfflineSupport,
@@ -51,7 +52,8 @@ const ACTIVITY_VIEWERS: Record<string, any> = {
   'quiz': QuizViewer,
   'reading': ReadingViewer,
   'video': VideoViewer,
-  'book': BookViewer
+  'book': BookViewer,
+  'essay': EssayViewer // ADDED: Essay activity viewer
 };
 
 interface ActivityViewerProps {

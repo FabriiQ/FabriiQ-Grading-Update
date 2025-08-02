@@ -9,12 +9,15 @@ import { QuestionHint } from '../ui/QuestionHint';
 import { RichTextDisplay } from '../ui/RichTextDisplay';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { AnimatedSubmitButton } from '../ui/AnimatedSubmitButton';
+import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
+import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
 import { Check, X } from 'lucide-react';
 
 export interface TrueFalseViewerProps {
   activity: TrueFalseActivity;
   mode?: 'student' | 'teacher';
+  studentId?: string; // Student ID for submission tracking
   onSubmit?: (answers: Record<string, boolean>, result: any) => void;
   onProgress?: (progress: number) => void;
   className?: string;
@@ -34,15 +37,21 @@ export interface TrueFalseViewerProps {
 export const TrueFalseViewer: React.FC<TrueFalseViewerProps> = ({
   activity,
   mode = 'student',
+  studentId,
   onSubmit,
   onProgress,
   className,
   submitButton
 }) => {
+  // Memory leak prevention
+  const { isMounted } = useMemoryLeakPrevention('true-false-viewer');
+
   // State for tracking selected answers and submission
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, boolean>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [score, setScore] = useState<number | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
+  const [startTime] = useState(new Date());
 
   // Shuffle questions if enabled
   const [shuffledQuestions, setShuffledQuestions] = useState<TrueFalseQuestion[]>([]);
@@ -365,38 +374,47 @@ export const TrueFalseViewer: React.FC<TrueFalseViewerProps> = ({
         ))}
       </div>
 
-      {/* Action buttons */}
+      {/* Action buttons - UPDATED: Using UniversalActivitySubmit */}
       <div className="mt-8 flex justify-between">
-        {!isSubmitted ? (
-          submitButton ? (
-            // Use the universal submit button if provided
-            React.cloneElement(submitButton as React.ReactElement, {
-              onClick: handleSubmit,
-              disabled: !allQuestionsAnswered,
-              loading: false,
-              submitted: false,
-              children: 'Submit'
-            })
-          ) : (
-            // Use AnimatedSubmitButton with reward integration
-            <AnimatedSubmitButton
-              onClick={handleSubmit}
-              disabled={!allQuestionsAnswered}
-              className="px-8 py-3 text-lg"
-            >
-              Submit Answers
-            </AnimatedSubmitButton>
-          )
-        ) : (
-          <ActivityButton
-            onClick={handleReset}
-            variant="secondary"
-            icon="refresh"
-            size="lg"
-          >
-            Try Again
-          </ActivityButton>
-        )}
+        <UniversalActivitySubmit
+          config={{
+            activityId: activity.id,
+            activityType: 'true-false',
+            studentId: studentId || 'anonymous',
+            answers: selectedAnswers,
+            timeSpent: Math.floor((Date.now() - startTime.getTime()) / 1000),
+            attemptNumber: 1,
+            metadata: {
+              startTime: startTime,
+              questionCount: activity.questions.length,
+              interactionCount: Object.keys(selectedAnswers).length
+            }
+          }}
+          disabled={!allQuestionsAnswered}
+          onSubmissionComplete={(result) => {
+            if (!isMounted()) return;
+            setIsSubmitted(true);
+            setSubmissionResult(result);
+            onSubmit?.(selectedAnswers, result);
+          }}
+          onSubmissionError={(error) => {
+            console.error('True/False submission error:', error);
+          }}
+          validateAnswers={(answers) => {
+            const answeredCount = Object.keys(answers).length;
+            if (answeredCount === 0) {
+              return 'Please answer at least one question.';
+            }
+            if (answeredCount < activity.questions.length) {
+              return `Please answer all ${activity.questions.length} questions.`;
+            }
+            return true;
+          }}
+          showTryAgain={true}
+          className="min-w-[140px]"
+        >
+          Submit True/False
+        </UniversalActivitySubmit>
 
         {mode === 'teacher' && (
           <ActivityButton

@@ -4,10 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { QuizActivity, QuizQuestion } from '../../models/quiz';
 import { ActivityButton } from '../ui/ActivityButton';
 import { AnimatedSubmitButton } from '../ui/AnimatedSubmitButton';
+import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
 import { ProgressIndicator } from '../ui/ProgressIndicator';
 import { QuestionHint } from '../ui/QuestionHint';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
+import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { useQuestionUsage } from '@/features/question-bank/hooks';
 import { cn } from '@/lib/utils';
 
@@ -91,10 +93,15 @@ export const QuizViewer: React.FC<QuizViewerProps> = ({
   studentId,
   classId
 }) => {
+  // Memory leak prevention
+  const { isMounted } = useMemoryLeakPrevention('quiz-viewer');
+
   // State for tracking answers and submission
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [score, setScore] = useState<number | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
+  const [startTime] = useState(new Date());
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(
     activity.settings?.showTimer && activity.settings.timeLimit
@@ -680,37 +687,47 @@ export const QuizViewer: React.FC<QuizViewerProps> = ({
 
         {/* Submit/Reset buttons */}
         <div className="flex justify-center sm:justify-end space-x-2">
-          {!isSubmitted ? (
-            submitButton ? (
-              // Use the universal submit button if provided
-              React.cloneElement(submitButton as React.ReactElement, {
-                onClick: handleSubmit,
-                disabled: activity.settings?.requireAllQuestions && !allQuestionsAnswered,
-                loading: false,
-                submitted: false,
-                className: "min-w-[120px] min-h-[44px] submit-pulse-animation",
-                children: 'Submit Quiz'
-              })
-            ) : (
-              // Use AnimatedSubmitButton with reward integration
-              <AnimatedSubmitButton
-                onClick={handleSubmit}
-                disabled={activity.settings?.requireAllQuestions && !allQuestionsAnswered}
-                className="min-w-[120px] min-h-[44px] px-6 py-3"
-              >
-                Submit Quiz
-              </AnimatedSubmitButton>
-            )
-          ) : (
-            <ActivityButton
-              onClick={handleReset}
-              variant="secondary"
-              icon="refresh"
-              className="min-w-[120px] min-h-[44px]"
-            >
-              Try Again
-            </ActivityButton>
-          )}
+          <UniversalActivitySubmit
+            config={{
+              activityId: activity.id,
+              activityType: 'quiz',
+              studentId: studentId || 'anonymous',
+              answers: answers,
+              timeSpent: Math.floor((Date.now() - startTime.getTime()) / 1000),
+              attemptNumber: 1,
+              metadata: {
+                startTime: startTime,
+                questionCount: activity.questions.length,
+                answeredCount: Object.keys(answers).length,
+                currentQuestion: currentQuestionIndex,
+                timeRemaining: timeRemaining
+              }
+            }}
+            disabled={activity.settings?.requireAllQuestions && !allQuestionsAnswered}
+            onSubmissionComplete={(result) => {
+              if (!isMounted()) return;
+              setIsSubmitted(true);
+              setSubmissionResult(result);
+              onSubmit?.(answers, result);
+            }}
+            onSubmissionError={(error) => {
+              console.error('Quiz submission error:', error);
+            }}
+            validateAnswers={(answers) => {
+              const answeredCount = Object.keys(answers).length;
+              if (activity.settings?.requireAllQuestions && answeredCount < activity.questions.length) {
+                return `Please answer all ${activity.questions.length} questions before submitting.`;
+              }
+              if (answeredCount === 0) {
+                return 'Please answer at least one question before submitting.';
+              }
+              return true;
+            }}
+            showTryAgain={true}
+            className="min-w-[120px] min-h-[44px] px-6 py-3"
+          >
+            Submit Quiz
+          </UniversalActivitySubmit>
 
           {mode === 'teacher' && (
             <ActivityButton

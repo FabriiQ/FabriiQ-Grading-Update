@@ -19,31 +19,31 @@ interface ThemeWrapperProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export const ThemeWrapper = forwardRef<HTMLDivElement, ThemeWrapperProps>(
   ({ children, className, ...props }, ref) => {
-    const { theme, resolvedTheme } = useTheme();
+    const { theme } = useTheme();
 
-    // Force re-render when theme changes
+    // Force re-render when theme changes - FIXED: Only use user theme, not resolvedTheme
     useEffect(() => {
-      // Apply theme to document body to ensure all components respect the theme
-      document.body.setAttribute('data-theme', resolvedTheme || 'light');
+      // FIXED: Only apply user-selected theme, not system theme
+      const userTheme = theme || 'light';
+
+      document.body.setAttribute('data-theme', userTheme);
 
       // This is needed to force Tailwind's dark mode to update properly
-      if (resolvedTheme === 'dark') {
+      if (userTheme === 'dark') {
         document.documentElement.classList.add('dark');
-        document.body.classList.add('dark');
       } else {
         document.documentElement.classList.remove('dark');
-        document.body.classList.remove('dark');
       }
-    }, [theme, resolvedTheme]);
+    }, [theme]); // FIXED: Remove resolvedTheme dependency
 
     return (
       <div
         ref={ref}
-        data-theme={resolvedTheme}
+        data-theme={theme}
         className={cn(
           className,
-          // Force theme class inheritance
-          resolvedTheme === 'dark' ? 'dark' : '',
+          // Force theme class inheritance - FIXED: Use theme instead of resolvedTheme
+          theme === 'dark' ? 'dark' : '',
           // Ensure proper background and text colors
           'bg-transparent text-inherit'
         )}

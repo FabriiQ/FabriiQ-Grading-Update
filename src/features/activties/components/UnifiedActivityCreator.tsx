@@ -213,7 +213,7 @@ function UnifiedActivityCreatorCore({
     },
     onError: async (error) => {
       stopSubmissionLoading();
-      const errorResult = await handleActivityError(error as Error, {
+      const errorResult = await handleActivityError(new Error(error.message || 'Unknown error'), {
         component: 'UnifiedActivityCreator',
         action: 'createActivity',
         metadata: { activityType: activityTypeId, classId },

@@ -4,10 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FlashCardsActivity, FlashCardDeck, FlashCard } from '../../models/flash-cards';
 import { ActivityButton } from '../ui/ActivityButton';
 import { AnimatedSubmitButton } from '../ui/AnimatedSubmitButton';
+import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
 import { ProgressIndicator } from '../ui/ProgressIndicator';
 import { QuestionHint } from '../ui/QuestionHint';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
+import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
 
 // Helper function to shuffle an array (Fisher-Yates algorithm)
@@ -156,6 +158,7 @@ const flashCardAnimationStyles = `
 export interface FlashCardsViewerProps {
   activity: FlashCardsActivity;
   mode?: 'student' | 'teacher';
+  studentId?: string; // Student ID for submission tracking
   onComplete?: (result: any) => void;
   onProgress?: (progress: number) => void;
   className?: string;
@@ -176,16 +179,22 @@ export interface FlashCardsViewerProps {
 export const FlashCardsViewer: React.FC<FlashCardsViewerProps> = ({
   activity,
   mode = 'student',
+  studentId,
   onComplete,
   onProgress,
   className,
   submitButton
 }) => {
+  // Memory leak prevention
+  const { isMounted } = useMemoryLeakPrevention('flash-cards-viewer');
+
   // State for tracking current deck and card
   const [currentDeckIndex, setCurrentDeckIndex] = useState(0);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
+  const [startTime] = useState(new Date());
   const [cardAnimation, setCardAnimation] = useState<string>('');
   const [knownCards, setKnownCards] = useState<Record<string, boolean>>({});
   const [shuffledDecks, setShuffledDecks] = useState<FlashCardDeck[]>([]);
@@ -801,30 +810,58 @@ export const FlashCardsViewer: React.FC<FlashCardsViewerProps> = ({
             Previous
           </ActivityButton>
 
-          {submitButton ? (
-            // Use the universal submit button if provided
-            React.cloneElement(submitButton as React.ReactElement, {
-              onClick: handleNextCard,
-              disabled: false,
-              loading: false,
-              submitted: false,
-              className: "min-w-[120px]",
-              children: currentDeckIndex === shuffledDecks.length - 1 && currentCardIndex === currentDeck?.cards.length - 1
-                ? 'Finish'
-                : 'Next'
-            })
-          ) : (
-            // Fallback to AnimatedSubmitButton if no universal button provided
-            <AnimatedSubmitButton
-              onClick={handleNextCard}
-              className="min-w-[120px]"
-            >
-              {currentDeckIndex === shuffledDecks.length - 1 && currentCardIndex === currentDeck?.cards.length - 1
-                ? 'Finish'
-                : 'Next'
+          <UniversalActivitySubmit
+            config={{
+              activityId: activity.id,
+              activityType: 'flash-cards',
+              studentId: studentId || 'anonymous',
+              answers: {
+                knownCards,
+                currentDeck: currentDeckIndex,
+                currentCard: currentCardIndex
+              },
+              timeSpent: Math.floor((Date.now() - startTime.getTime()) / 1000),
+              attemptNumber: 1,
+              metadata: {
+                startTime: startTime,
+                decksCount: shuffledDecks.length,
+                totalCards: shuffledDecks.reduce((sum, deck) => sum + deck.cards.length, 0),
+                knownCardsCount: Object.values(knownCards).filter(Boolean).length
               }
-            </AnimatedSubmitButton>
-          )}
+            }}
+            disabled={false}
+            onSubmissionComplete={(result) => {
+              if (!isMounted()) return;
+              setSubmissionResult(result);
+
+              if (currentDeckIndex === shuffledDecks.length - 1 && currentCardIndex === currentDeck?.cards.length - 1) {
+                setIsCompleted(true);
+                const completionResult = {
+                  completed: true,
+                  knownCards,
+                  totalCards: shuffledDecks.reduce((sum, deck) => sum + deck.cards.length, 0),
+                  knownCardsCount: Object.values(knownCards).filter(Boolean).length
+                };
+                onComplete?.(completionResult);
+              } else {
+                handleNextCard();
+              }
+            }}
+            onSubmissionError={(error) => {
+              console.error('Flash Cards submission error:', error);
+            }}
+            validateAnswers={(answers) => {
+              // Flash cards don't require strict validation
+              return true;
+            }}
+            showTryAgain={false}
+            className="min-w-[120px]"
+          >
+            {currentDeckIndex === shuffledDecks.length - 1 && currentCardIndex === currentDeck?.cards.length - 1
+              ? 'Finish Flash Cards'
+              : 'Next Card'
+            }
+          </UniversalActivitySubmit>
         </div>
       )}
     </ThemeWrapper>

@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ReadingActivity, ReadingSection } from '../../models/reading';
 import { ActivityButton } from '../ui/ActivityButton';
-import { AnimatedSubmitButton } from '../ui/AnimatedSubmitButton';
+import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
 import { ProgressIndicator } from '../ui/ProgressIndicator';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
+import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
 
 // Animation styles
@@ -89,6 +90,7 @@ const readingAnimationStyles = `
 export interface ReadingViewerProps {
   activity: ReadingActivity;
   mode?: 'student' | 'teacher';
+  studentId?: string; // Student ID for submission tracking
   onComplete?: (result: any) => void;
   onProgress?: (progress: number) => void;
   className?: string;
@@ -110,15 +112,21 @@ export interface ReadingViewerProps {
 export const ReadingViewer: React.FC<ReadingViewerProps> = ({
   activity,
   mode = 'student',
+  studentId,
   onComplete,
   onProgress,
   className,
   submitButton
 }) => {
+  // Memory leak prevention
+  const { isMounted } = useMemoryLeakPrevention('reading-viewer');
+
   // State for tracking current section and completion
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
   const [readSections, setReadSections] = useState<Record<string, boolean>>({});
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
+  const [startTime] = useState(new Date());
   const [highlights, setHighlights] = useState<Record<string, string[]>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [fontSize, setFontSize] = useState<number>(16);
@@ -1165,73 +1173,55 @@ export const ReadingViewer: React.FC<ReadingViewerProps> = ({
             </ActivityButton>
 
             {currentSectionIndex === sections.length - 1 ? (
-              submitButton ? (
-                // Use the universal submit button if provided
-                React.cloneElement(submitButton as React.ReactElement, {
-                  onClick: () => {
-                    // Mark all sections as read
-                    const allSections = {};
-                    sections.forEach(section => {
-                      allSections[section.id] = true;
-                    });
-                    setReadSections(allSections);
-                    setIsCompleted(true);
+              <UniversalActivitySubmit
+                config={{
+                  activityId: activity.id,
+                  activityType: 'reading',
+                  studentId: studentId || 'anonymous',
+                  answers: { readSections, highlights, notes },
+                  timeSpent: Math.floor((Date.now() - startTime.getTime()) / 1000),
+                  attemptNumber: 1,
+                  metadata: {
+                    startTime: startTime,
+                    sectionsCount: sections.length,
+                    sectionsRead: Object.keys(readSections).length,
+                    highlightsCount: Object.keys(highlights).length,
+                    notesCount: Object.keys(notes).length
+                  }
+                }}
+                disabled={false}
+                onSubmissionComplete={(result) => {
+                  if (!isMounted()) return;
+                  setIsCompleted(true);
+                  setSubmissionResult(result);
 
-                    // Track completion in analytics
-                    analytics?.trackEvent('reading_complete', {
-                      activityId: activity.id,
-                      activityType: activity.activityType,
+                  // Mark all sections as read
+                  const allSections = {};
+                  sections.forEach(section => {
+                    allSections[section.id] = true;
+                  });
+                  setReadSections(allSections);
+
+                  if (onComplete) {
+                    onComplete({
+                      completed: true,
                       sectionsRead: sections.length,
                       totalSections: sections.length
                     });
-
-                    if (onComplete) {
-                      onComplete({
-                        completed: true,
-                        sectionsRead: sections.length,
-                        totalSections: sections.length
-                      });
-                    }
-                  },
-                  disabled: false,
-                  loading: false,
-                  submitted: false,
-                  className: "min-h-[44px]",
-                  children: 'Complete Reading'
-                })
-              ) : (
-                // Use AnimatedSubmitButton with reward integration
-                <AnimatedSubmitButton
-                  onClick={() => {
-                    // Mark all sections as read
-                    const allSections = {};
-                    sections.forEach(section => {
-                      allSections[section.id] = true;
-                    });
-                    setReadSections(allSections);
-                    setIsCompleted(true);
-
-                    // Track completion in analytics
-                    analytics?.trackEvent('reading_complete', {
-                      activityId: activity.id,
-                      activityType: activity.activityType,
-                      sectionsRead: sections.length,
-                      totalSections: sections.length
-                    });
-
-                    if (onComplete) {
-                      onComplete({
-                        completed: true,
-                        sectionsRead: sections.length,
-                        totalSections: sections.length
-                      });
-                    }
-                  }}
-                  className="min-h-[44px] px-6 py-3"
-                >
-                  Complete Reading
-                </AnimatedSubmitButton>
-              )
+                  }
+                }}
+                onSubmissionError={(error) => {
+                  console.error('Reading submission error:', error);
+                }}
+                validateAnswers={(answers) => {
+                  // Reading activities don't require strict validation
+                  return true;
+                }}
+                showTryAgain={false}
+                className="min-h-[44px] px-6 py-3"
+              >
+                Complete Reading
+              </UniversalActivitySubmit>
             ) : (
               <ActivityButton
                 onClick={handleNextSection}

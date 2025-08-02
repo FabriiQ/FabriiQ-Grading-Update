@@ -26,12 +26,15 @@ import {
 import { useToast } from '@/components/ui/feedback/toast';
 import { BloomsTaxonomyBadge } from '@/features/bloom/components/taxonomy/BloomsTaxonomyBadge';
 import { EssayActivity, EssaySubmissionData } from '../../models/essay';
+import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
+import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
 
 interface EssayViewerProps {
   activity: EssayActivity;
   initialContent?: string;
   submissionId?: string;
+  studentId?: string; // Student ID for submission tracking
   isReadOnly?: boolean;
   onSave?: (content: string, wordCount: number) => Promise<void>;
   onSubmit?: (submissionData: EssaySubmissionData) => Promise<void>;
@@ -43,17 +46,23 @@ export function EssayViewer({
   activity,
   initialContent = '',
   submissionId,
+  studentId,
   isReadOnly = false,
   onSave,
   onSubmit,
   onPreview,
   className
 }: EssayViewerProps) {
+  // Memory leak prevention
+  const { isMounted } = useMemoryLeakPrevention('essay-viewer');
+
   const { toast } = useToast();
   const [content, setContent] = useState(initialContent);
   const [wordCount, setWordCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [timeSpent, setTimeSpent] = useState(0);
   const [revisionCount, setRevisionCount] = useState(0);
@@ -396,14 +405,57 @@ export function EssayViewer({
               </Button>
             </div>
 
-            <Button
-              onClick={handleSubmit}
-              disabled={isSubmitting || content.trim().length === 0}
+            <UniversalActivitySubmit
+              config={{
+                activityId: activity.id,
+                activityType: 'essay',
+                studentId: studentId || 'anonymous',
+                answers: { essayText: content },
+                timeSpent: Math.floor((Date.now() - startTime.getTime()) / 1000),
+                attemptNumber: 1,
+                metadata: {
+                  startTime: startTime,
+                  wordCount: wordCount,
+                  revisionCount: revisionCount,
+                  essayLength: content.length
+                }
+              }}
+              disabled={content.trim().length === 0}
+              onSubmissionComplete={(result) => {
+                if (!isMounted()) return;
+                setIsSubmitted(true);
+                setSubmissionResult(result);
+                onSubmit?.({
+                  essayText: content,
+                  wordCount,
+                  timeSpent,
+                  revisionCount,
+                  submittedAt: new Date(),
+                  startedAt: startTime,
+                });
+              }}
+              onSubmissionError={(error) => {
+                console.error('Essay submission error:', error);
+              }}
+              validateAnswers={(answers) => {
+                const text = answers.essayText?.trim();
+                if (!text || text.length === 0) {
+                  return 'Please write your essay before submitting.';
+                }
+                if (activity.settings?.minWords && wordCount < activity.settings.minWords) {
+                  return `Essay must be at least ${activity.settings.minWords} words. Current: ${wordCount} words.`;
+                }
+                if (activity.settings?.maxWords && wordCount > activity.settings.maxWords) {
+                  return `Essay must not exceed ${activity.settings.maxWords} words. Current: ${wordCount} words.`;
+                }
+                return true;
+              }}
+              showTryAgain={false}
               className="flex items-center gap-2"
             >
               <CheckCircle className="h-4 w-4" />
-              {isSubmitting ? 'Submitting...' : 'Submit Essay'}
-            </Button>
+              Submit Essay
+            </UniversalActivitySubmit>
           </div>
         )}
 

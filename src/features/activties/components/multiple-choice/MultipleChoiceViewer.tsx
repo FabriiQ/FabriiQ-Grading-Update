@@ -5,6 +5,8 @@ import { MultipleChoiceActivity, MultipleChoiceQuestion } from '../../models/mul
 import { gradeMultipleChoiceActivity } from '../../grading/multiple-choice';
 import { ActivityButton } from '../ui/ActivityButton';
 import { AnimatedSubmitButton } from '../ui/AnimatedSubmitButton';
+import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
+import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { SelectableOption } from '../ui/SelectableOption';
 import { ProgressIndicator } from '../ui/ProgressIndicator';
 import { QuestionHint } from '../ui/QuestionHint';
@@ -17,6 +19,7 @@ import { cn } from '@/lib/utils';
 export interface MultipleChoiceViewerProps {
   activity: MultipleChoiceActivity;
   mode?: 'student' | 'teacher';
+  studentId?: string; // Student ID for submission tracking
   onSubmit?: (answers: Record<string, string>, result: any) => void;
   onProgress?: (progress: number) => void;
   className?: string;
@@ -39,19 +42,25 @@ export interface MultipleChoiceViewerProps {
 export const MultipleChoiceViewer: React.FC<MultipleChoiceViewerProps> = ({
   activity,
   mode = 'student',
+  studentId,
   onSubmit,
   onProgress,
   className,
   submitButton
 }) => {
+  // Memory leak prevention
+  const { safeSetTimeout, isMounted, registerCleanup } = useMemoryLeakPrevention('multiple-choice-viewer');
+
   // State for tracking selected answers and submission
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [score, setScore] = useState<number | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showSingleQuestion, setShowSingleQuestion] = useState(false);
   const [questionTransition, setQuestionTransition] = useState<'slide-left' | 'slide-right' | 'fade-in' | null>(null);
+  const [startTime] = useState(new Date());
 
   // Refs for scroll position management
   const containerRef = useRef<HTMLDivElement>(null);
@@ -115,13 +124,15 @@ export const MultipleChoiceViewer: React.FC<MultipleChoiceViewerProps> = ({
 
   // Handle hint toggle is now managed by the QuestionHint component
 
-  // Handle submission with optimistic UI and animations
+  // Handle submission with optimistic UI and animations - UPDATED: Using memory-safe timeout
   const handleSubmit = () => {
     // Show submitting state
     setIsSubmitting(true);
 
-    // Simulate network delay for better UX with animations
-    setTimeout(() => {
+    // Simulate network delay for better UX with animations - UPDATED: Memory-safe timeout
+    safeSetTimeout(() => {
+      if (!isMounted()) return;
+
       // Grade the activity
       const result = gradeMultipleChoiceActivity(activity, selectedAnswers);
       setScore(result.percentage);
@@ -483,40 +494,46 @@ export const MultipleChoiceViewer: React.FC<MultipleChoiceViewerProps> = ({
           {shuffledQuestions.map((question, index) => renderQuestion(question, index))}
         </div>
 
-        {/* Action buttons */}
+        {/* Action buttons - UPDATED: Using UniversalActivitySubmit */}
         <div className="mt-8 flex justify-between">
-          {!isSubmitted ? (
-            submitButton ? (
-              // Use the universal submit button if provided
-              React.cloneElement(submitButton as React.ReactElement, {
-                onClick: handleSubmit,
-                disabled: !allQuestionsAnswered,
-                loading: isSubmitting,
-                submitted: false,
-                children: 'Submit'
-              })
-            ) : (
-              // Fallback to AnimatedSubmitButton if no universal button provided
-              <AnimatedSubmitButton
-                onClick={handleSubmit}
-                disabled={!allQuestionsAnswered}
-                loading={isSubmitting}
-                submitted={false}
-                className="min-w-[140px]"
-              >
-                Submit
-              </AnimatedSubmitButton>
-            )
-          ) : (
-            <ActivityButton
-              onClick={handleReset}
-              variant="secondary"
-              icon="refresh"
-              size="lg"
-            >
-              Try Again
-            </ActivityButton>
-          )}
+          <UniversalActivitySubmit
+            config={{
+              activityId: activity.id,
+              activityType: 'multiple-choice',
+              studentId: studentId || 'anonymous',
+              answers: selectedAnswers,
+              timeSpent: Math.floor((Date.now() - startTime.getTime()) / 1000),
+              attemptNumber: 1,
+              metadata: {
+                startTime: startTime,
+                questionCount: activity.questions.length,
+                interactionCount: Object.keys(selectedAnswers).length
+              }
+            }}
+            disabled={!allQuestionsAnswered}
+            onSubmissionComplete={(result) => {
+              setIsSubmitted(true);
+              setSubmissionResult(result);
+              onSubmit?.(selectedAnswers, result);
+            }}
+            onSubmissionError={(error) => {
+              console.error('Multiple choice submission error:', error);
+            }}
+            validateAnswers={(answers) => {
+              const answeredCount = Object.keys(answers).length;
+              if (answeredCount === 0) {
+                return 'Please answer at least one question.';
+              }
+              if (answeredCount < activity.questions.length) {
+                return `Please answer all ${activity.questions.length} questions.`;
+              }
+              return true;
+            }}
+            showTryAgain={true}
+            className="min-w-[140px]"
+          >
+            Submit Multiple Choice
+          </UniversalActivitySubmit>
 
           {mode === 'teacher' && (
             <ActivityButton

@@ -10,12 +10,13 @@ import {
 import { gradeSequenceActivity } from '../../grading/sequence';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
 import { ActivityButton } from '../ui/ActivityButton';
-import { AnimatedSubmitButton } from '../ui/AnimatedSubmitButton';
+import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
 import { ProgressIndicator } from '../ui/ProgressIndicator';
 import { QuestionHint } from '../ui/QuestionHint';
 import { RichTextDisplay } from '../ui/RichTextDisplay';
 import { MediaDisplay } from '../ui/MediaDisplay';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
+import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 
@@ -100,6 +101,7 @@ const sortingAnimationStyles = `
 export interface SequenceViewerProps {
   activity: SequenceActivity;
   mode?: 'student' | 'teacher';
+  studentId?: string; // Student ID for submission tracking
   onSubmit?: (answers: Record<string, string[]>, result: any) => void;
   onProgress?: (progress: number) => void;
   className?: string;
@@ -119,15 +121,21 @@ export interface SequenceViewerProps {
 export const SequenceViewer: React.FC<SequenceViewerProps> = ({
   activity,
   mode = 'student',
+  studentId,
   onSubmit,
   onProgress,
   className,
   submitButton
 }) => {
+  // Memory leak prevention
+  const { isMounted } = useMemoryLeakPrevention('sequence-viewer');
+
   // State for tracking sequences and submission
   const [sequences, setSequences] = useState<Record<string, string[]>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [score, setScore] = useState<number | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
+  const [startTime] = useState(new Date());
 
   // Animation states
   const [animatingItems, setAnimatingItems] = useState<Record<string, string>>({});
@@ -673,35 +681,45 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
 
       {/* Action buttons */}
       <div className="mt-6 flex justify-between">
-        {!isSubmitted ? (
-          submitButton ? (
-            // Use the universal submit button if provided
-            React.cloneElement(submitButton as React.ReactElement, {
-              onClick: handleSubmit,
-              disabled: Object.keys(sequences).length === 0,
-              loading: false,
-              submitted: false,
-              children: 'Submit'
-            })
-          ) : (
-            // Use AnimatedSubmitButton with reward integration
-            <AnimatedSubmitButton
-              onClick={handleSubmit}
-              disabled={Object.keys(sequences).length === 0}
-              className="px-8 py-3 text-lg"
-            >
-              Submit Sequence
-            </AnimatedSubmitButton>
-          )
-        ) : (
-          <ActivityButton
-            onClick={handleReset}
-            variant="secondary"
-            icon="refresh"
-          >
-            Try Again
-          </ActivityButton>
-        )}
+        <UniversalActivitySubmit
+          config={{
+            activityId: activity.id,
+            activityType: 'sequence',
+            studentId: studentId || 'anonymous',
+            answers: sequences,
+            timeSpent: Math.floor((Date.now() - startTime.getTime()) / 1000),
+            attemptNumber: 1,
+            metadata: {
+              startTime: startTime,
+              questionCount: activity.questions.length,
+              sequencesCompleted: Object.keys(sequences).length
+            }
+          }}
+          disabled={Object.keys(sequences).length === 0}
+          onSubmissionComplete={(result) => {
+            if (!isMounted()) return;
+            setIsSubmitted(true);
+            setSubmissionResult(result);
+            onSubmit?.(sequences, result);
+          }}
+          onSubmissionError={(error) => {
+            console.error('Sequence submission error:', error);
+          }}
+          validateAnswers={(answers) => {
+            const sequenceCount = Object.keys(answers).length;
+            if (sequenceCount === 0) {
+              return 'Please arrange at least one sequence before submitting.';
+            }
+            if (sequenceCount < activity.questions.length) {
+              return `Please complete all ${activity.questions.length} sequences.`;
+            }
+            return true;
+          }}
+          showTryAgain={true}
+          className="px-8 py-3 text-lg"
+        >
+          Submit Sequence
+        </UniversalActivitySubmit>
 
         {mode === 'teacher' && (
           <ActivityButton

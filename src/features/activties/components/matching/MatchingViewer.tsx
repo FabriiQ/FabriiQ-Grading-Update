@@ -10,11 +10,13 @@ import {
 import { gradeMatchingActivity } from '../../grading/matching';
 import { ActivityButton } from '../ui/ActivityButton';
 import { AnimatedSubmitButton } from '../ui/AnimatedSubmitButton';
+import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
 import { ProgressIndicator } from '../ui/ProgressIndicator';
 import { QuestionHint } from '../ui/QuestionHint';
 import { RichTextDisplay } from '../ui/RichTextDisplay';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
+import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
 
 // Drag and drop animation styles with brand colors
@@ -130,6 +132,7 @@ const dragDropAnimationStyles = `
 export interface MatchingViewerProps {
   activity: MatchingActivity;
   mode?: 'student' | 'teacher';
+  studentId?: string; // Student ID for submission tracking
   onSubmit?: (answers: Record<string, string>, result: any) => void;
   onProgress?: (progress: number) => void;
   className?: string;
@@ -149,15 +152,21 @@ export interface MatchingViewerProps {
 export const MatchingViewer: React.FC<MatchingViewerProps> = ({
   activity,
   mode = 'student',
+  studentId,
   onSubmit,
   onProgress,
   className,
   submitButton
 }) => {
+  // Memory leak prevention
+  const { isMounted } = useMemoryLeakPrevention('matching-viewer');
+
   // State for tracking matches and submission
   const [matches, setMatches] = useState<Record<string, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [score, setScore] = useState<number | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
+  const [startTime] = useState(new Date());
 
   // State for drag and drop
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
@@ -792,38 +801,47 @@ export const MatchingViewer: React.FC<MatchingViewerProps> = ({
         ))}
       </div>
 
-      {/* Action buttons */}
+      {/* Action buttons - UPDATED: Using UniversalActivitySubmit */}
       <div className="mt-8 flex justify-between">
-        {!isSubmitted ? (
-          submitButton ? (
-            // Use the universal submit button if provided
-            React.cloneElement(submitButton as React.ReactElement, {
-              onClick: handleSubmit,
-              disabled: !allPairsMatched,
-              loading: false,
-              submitted: false,
-              children: 'Submit'
-            })
-          ) : (
-            // Use AnimatedSubmitButton with reward integration
-            <AnimatedSubmitButton
-              onClick={handleSubmit}
-              disabled={!allPairsMatched}
-              className="px-8 py-3 text-lg"
-            >
-              Submit Matches
-            </AnimatedSubmitButton>
-          )
-        ) : (
-          <ActivityButton
-            onClick={handleReset}
-            variant="secondary"
-            icon="refresh"
-            size="lg"
-          >
-            Try Again
-          </ActivityButton>
-        )}
+        <UniversalActivitySubmit
+          config={{
+            activityId: activity.id,
+            activityType: 'matching',
+            studentId: studentId || 'anonymous',
+            answers: matches,
+            timeSpent: Math.floor((Date.now() - startTime.getTime()) / 1000),
+            attemptNumber: 1,
+            metadata: {
+              startTime: startTime,
+              pairCount: activity.questions.length,
+              matchedPairs: Object.keys(matches).length
+            }
+          }}
+          disabled={!allPairsMatched}
+          onSubmissionComplete={(result) => {
+            if (!isMounted()) return;
+            setIsSubmitted(true);
+            setSubmissionResult(result);
+            onSubmit?.(matches, result);
+          }}
+          onSubmissionError={(error) => {
+            console.error('Matching submission error:', error);
+          }}
+          validateAnswers={(answers) => {
+            const matchedCount = Object.keys(answers).length;
+            if (matchedCount === 0) {
+              return 'Please match at least one pair.';
+            }
+            if (matchedCount < activity.questions.length) {
+              return `Please match all ${activity.questions.length} pairs.`;
+            }
+            return true;
+          }}
+          showTryAgain={true}
+          className="min-w-[140px]"
+        >
+          Submit Matches
+        </UniversalActivitySubmit>
 
         {mode === 'teacher' && (
           <ActivityButton

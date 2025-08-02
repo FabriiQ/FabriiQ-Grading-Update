@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect, memo, useRef } from "react";
 import { Button } from "@/components/ui/atoms/button";
 import { Input } from "@/components/ui/atoms/input";
 import { Textarea } from "@/components/ui/forms/textarea";
@@ -35,6 +35,10 @@ function BatchGradingTableComponent({
   const [studentGrades, setStudentGrades] = useState<StudentGrade[]>([]);
   const [selectAll, setSelectAll] = useState(true);
 
+  // Refs for cleanup
+  const timeoutRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<NodeJS.Timeout>();
+
   // Initialize student grades
   useEffect(() => {
     setStudentGrades(
@@ -46,6 +50,24 @@ function BatchGradingTableComponent({
       }))
     );
   }, [students]);
+
+  // Cleanup effect to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      // Cleanup timers to prevent memory leaks
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = undefined;
+      }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = undefined;
+      }
+
+      // Clear large state objects
+      setStudentGrades([]);
+    };
+  }, []);
 
   // Handle select all toggle
   const handleSelectAll = () => {

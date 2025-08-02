@@ -3,14 +3,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { VideoActivity, extractYouTubeVideoId, generateYouTubeEmbedUrl, formatVideoDuration, calculateVideoProgress } from '../../models/video';
 import { ProgressIndicator } from '../ui/ProgressIndicator';
-import { AnimatedSubmitButton } from '../ui/AnimatedSubmitButton';
+import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
+import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
 
 export interface VideoViewerProps {
   activity: VideoActivity;
   mode?: 'student' | 'teacher';
+  studentId?: string; // Student ID for submission tracking
   onComplete?: (result: any) => void;
   onProgress?: (progress: number) => void;
   className?: string;
@@ -32,15 +34,21 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({
   // mode is defined in the interface but not used in this component
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   mode = 'student',
+  studentId,
   onComplete,
   onProgress,
   className,
   submitButton
 }) => {
+  // Memory leak prevention
+  const { isMounted } = useMemoryLeakPrevention('video-viewer');
+
   // State for tracking video playback
   const [currentSourceIndex, setCurrentSourceIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(activity.settings?.startTime || 0);
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
+  const [startTime] = useState(new Date());
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
@@ -791,25 +799,52 @@ export const VideoViewer: React.FC<VideoViewerProps> = ({
         </div>
       ) : (
         <div className="mt-6 flex justify-center">
-          {submitButton ? (
-            // Use the universal submit button if provided
-            React.cloneElement(submitButton as React.ReactElement, {
-              onClick: handleVideoComplete,
-              disabled: false,
-              loading: false,
-              submitted: false,
-              className: "min-w-[180px]",
-              children: 'Mark as Completed'
-            })
-          ) : (
-            // Use AnimatedSubmitButton with reward integration
-            <AnimatedSubmitButton
-              onClick={handleVideoComplete}
-              className="min-h-[44px] min-w-[180px] px-6 py-3"
-            >
-              Mark as Completed
-            </AnimatedSubmitButton>
-          )}
+          <UniversalActivitySubmit
+            config={{
+              activityId: activity.id,
+              activityType: 'video',
+              studentId: studentId || 'anonymous',
+              answers: {
+                watchTime: currentTime,
+                totalDuration: duration,
+                completionPercentage: Math.round((currentTime / duration) * 100)
+              },
+              timeSpent: Math.floor((Date.now() - startTime.getTime()) / 1000),
+              attemptNumber: 1,
+              metadata: {
+                startTime: startTime,
+                videoSources: activity.videoSources?.length || 1,
+                currentSource: currentSourceIndex,
+                playbackRate: playbackRate,
+                volume: volume
+              }
+            }}
+            disabled={false}
+            onSubmissionComplete={(result) => {
+              if (!isMounted()) return;
+              setSubmissionResult(result);
+
+              const completionResult = {
+                completed: true,
+                watchTime: currentTime,
+                totalDuration: duration,
+                completionPercentage: Math.round((currentTime / duration) * 100)
+              };
+
+              onComplete?.(completionResult);
+            }}
+            onSubmissionError={(error) => {
+              console.error('Video submission error:', error);
+            }}
+            validateAnswers={(answers) => {
+              // Video activities don't require strict validation
+              return true;
+            }}
+            showTryAgain={false}
+            className="min-h-[44px] min-w-[180px] px-6 py-3"
+          >
+            Mark as Completed
+          </UniversalActivitySubmit>
         </div>
       )}
     </ThemeWrapper>

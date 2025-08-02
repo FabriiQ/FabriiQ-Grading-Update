@@ -4,10 +4,12 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { DragAndDropActivity, DragAndDropQuestion, DragAndDropItem, DropZone } from '../../models/drag-and-drop';
 import { ActivityButton } from '../ui/ActivityButton';
 import AnimatedSubmitButton from '../ui/AnimatedSubmitButton';
+import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
 import { ProgressIndicator } from '../ui/ProgressIndicator';
 import { QuestionHint } from '../ui/QuestionHint';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
+import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
 import { ArrowDown } from 'lucide-react';
 
@@ -106,6 +108,7 @@ const dragAnimationStyles = `
 export interface DragAndDropViewerProps {
   activity: DragAndDropActivity;
   mode?: 'student' | 'teacher';
+  studentId?: string; // Student ID for submission tracking
   onSubmit?: (answers: Record<string, string>, result: any) => void;
   onProgress?: (progress: number) => void;
   className?: string;
@@ -126,15 +129,21 @@ export interface DragAndDropViewerProps {
 export const DragAndDropViewer: React.FC<DragAndDropViewerProps> = ({
   activity,
   mode = 'student',
+  studentId,
   onSubmit,
   onProgress,
   className,
   submitButton
 }) => {
+  // Memory leak prevention
+  const { isMounted } = useMemoryLeakPrevention('drag-and-drop-viewer');
+
   // State for tracking answers and submission
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [score, setScore] = useState<number | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
+  const [startTime] = useState(new Date());
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [draggingItem, setDraggingItem] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -701,39 +710,47 @@ export const DragAndDropViewer: React.FC<DragAndDropViewerProps> = ({
 
         {/* Submit/Reset buttons */}
         <div className="flex justify-center sm:justify-end space-x-2 order-1 sm:order-2">
-          {!isSubmitted ? (
-            submitButton ? (
-              // Use the universal submit button if provided
-              React.cloneElement(submitButton as React.ReactElement, {
-                onClick: handleSubmit,
-                disabled: !allItemsPlaced,
-                loading: false,
-                submitted: false,
-                className: "min-w-[120px] min-h-[44px]",
-                children: 'Submit'
-              })
-            ) : (
-              // Use AnimatedSubmitButton for better UX
-              <AnimatedSubmitButton
-                onClick={handleSubmit}
-                disabled={!allItemsPlaced}
-                loading={false}
-                submitted={false}
-                className="min-w-[120px] min-h-[44px]"
-              >
-                Submit
-              </AnimatedSubmitButton>
-            )
-          ) : (
-            <ActivityButton
-              onClick={handleReset}
-              variant="secondary"
-              icon="refresh"
-              className="min-w-[120px] min-h-[44px]"
-            >
-              Try Again
-            </ActivityButton>
-          )}
+          <UniversalActivitySubmit
+            config={{
+              activityId: activity.id,
+              activityType: 'drag-and-drop',
+              studentId: studentId || 'anonymous',
+              answers: answers,
+              timeSpent: Math.floor((Date.now() - startTime.getTime()) / 1000),
+              attemptNumber: 1,
+              metadata: {
+                startTime: startTime,
+                questionCount: activity.questions.length,
+                itemsPlaced: Object.keys(answers).length,
+                currentQuestion: currentQuestionIndex
+              }
+            }}
+            disabled={!allItemsPlaced}
+            onSubmissionComplete={(result) => {
+              if (!isMounted()) return;
+              setIsSubmitted(true);
+              setSubmissionResult(result);
+              onSubmit?.(answers, result);
+            }}
+            onSubmissionError={(error) => {
+              console.error('Drag and Drop submission error:', error);
+            }}
+            validateAnswers={(answers) => {
+              const placedCount = Object.keys(answers).length;
+              if (placedCount === 0) {
+                return 'Please place at least one item before submitting.';
+              }
+              const totalItems = activity.questions.reduce((sum, q) => sum + q.items.length, 0);
+              if (placedCount < totalItems) {
+                return `Please place all ${totalItems} items in their correct zones.`;
+              }
+              return true;
+            }}
+            showTryAgain={true}
+            className="min-w-[120px] min-h-[44px]"
+          >
+            Submit Drag & Drop
+          </UniversalActivitySubmit>
 
           {mode === 'teacher' && (
             <ActivityButton

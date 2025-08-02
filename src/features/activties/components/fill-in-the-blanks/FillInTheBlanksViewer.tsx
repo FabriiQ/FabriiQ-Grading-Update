@@ -9,11 +9,13 @@ import {
 import { gradeFillInTheBlanksActivity } from '../../grading/fill-in-the-blanks';
 import { ActivityButton } from '../ui/ActivityButton';
 import { AnimatedSubmitButton } from '../ui/AnimatedSubmitButton';
+import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
 import { ProgressIndicator } from '../ui/ProgressIndicator';
 import { QuestionHint } from '../ui/QuestionHint';
 import { RichTextDisplay } from '../ui/RichTextDisplay';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
+import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
 
 // Typing animation styles with brand colors
@@ -69,6 +71,7 @@ const typingAnimationStyles = `
 export interface FillInTheBlanksViewerProps {
   activity: FillInTheBlanksActivity;
   mode?: 'student' | 'teacher';
+  studentId?: string; // Student ID for submission tracking
   onSubmit?: (answers: Record<string, string>, result: any) => void;
   onProgress?: (progress: number) => void;
   className?: string;
@@ -88,15 +91,21 @@ export interface FillInTheBlanksViewerProps {
 export const FillInTheBlanksViewer: React.FC<FillInTheBlanksViewerProps> = ({
   activity,
   mode = 'student',
+  studentId,
   onSubmit,
   onProgress,
   className,
   submitButton
 }) => {
+  // Memory leak prevention
+  const { isMounted } = useMemoryLeakPrevention('fill-in-the-blanks-viewer');
+
   // State for tracking answers and submission
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [score, setScore] = useState<number | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
+  const [startTime] = useState(new Date());
 
   // Animation states
   const [typingBlankId, setTypingBlankId] = useState<string | null>(null);
@@ -644,38 +653,49 @@ export const FillInTheBlanksViewer: React.FC<FillInTheBlanksViewerProps> = ({
         ))}
       </div>
 
-      {/* Action buttons */}
+      {/* Action buttons - UPDATED: Using UniversalActivitySubmit */}
       <div className="mt-8 flex justify-between">
-        {!isSubmitted ? (
-          submitButton ? (
-            // Use the universal submit button if provided
-            React.cloneElement(submitButton as React.ReactElement, {
-              onClick: handleSubmit,
-              disabled: !allBlanksFilled,
-              loading: false,
-              submitted: false,
-              children: 'Submit'
-            })
-          ) : (
-            // Use AnimatedSubmitButton with reward integration
-            <AnimatedSubmitButton
-              onClick={handleSubmit}
-              disabled={!allBlanksFilled}
-              className="px-8 py-3 text-lg"
-            >
-              Submit Answers
-            </AnimatedSubmitButton>
-          )
-        ) : (
-          <ActivityButton
-            onClick={handleReset}
-            variant="secondary"
-            icon="refresh"
-            size="lg"
-          >
-            Try Again
-          </ActivityButton>
-        )}
+        <UniversalActivitySubmit
+          config={{
+            activityId: activity.id,
+            activityType: 'fill-in-the-blanks',
+            studentId: studentId || 'anonymous',
+            answers: answers,
+            timeSpent: Math.floor((Date.now() - startTime.getTime()) / 1000),
+            attemptNumber: 1,
+            metadata: {
+              startTime: startTime,
+              questionCount: activity.questions.length,
+              blanksCount: Object.keys(answers).length,
+              completedBlanks: Object.values(answers).filter(v => v.trim().length > 0).length
+            }
+          }}
+          disabled={!allBlanksFilled}
+          onSubmissionComplete={(result) => {
+            if (!isMounted()) return;
+            setIsSubmitted(true);
+            setSubmissionResult(result);
+            onSubmit?.(answers, result);
+          }}
+          onSubmissionError={(error) => {
+            console.error('Fill in the Blanks submission error:', error);
+          }}
+          validateAnswers={(answers) => {
+            const filledCount = Object.values(answers).filter(v => v.trim().length > 0).length;
+            if (filledCount === 0) {
+              return 'Please fill in at least one blank before submitting.';
+            }
+            const totalBlanks = Object.keys(answers).length;
+            if (filledCount < totalBlanks) {
+              return `Please fill in all ${totalBlanks} blanks.`;
+            }
+            return true;
+          }}
+          showTryAgain={true}
+          className="px-8 py-3 text-lg"
+        >
+          Submit Fill in the Blanks
+        </UniversalActivitySubmit>
 
         {mode === 'teacher' && (
           <ActivityButton

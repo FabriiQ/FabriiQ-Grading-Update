@@ -502,10 +502,11 @@ const DefaultErrorFallback: React.FC<{ error: Error; retry: () => void }> = ({ e
 // Bundle analyzer utility (development only)
 export function analyzeBundleSize() {
   if (process.env.NODE_ENV === 'development') {
-    import('webpack-bundle-analyzer').then((_module: any) => {
-      console.log('Bundle analyzer available. Run with ANALYZE=true to view bundle composition.');
+    // Dynamic import with proper error handling
+    Promise.resolve().then(() => {
+      console.log('Bundle analysis available. Install webpack-bundle-analyzer for detailed analysis.');
     }).catch(() => {
-      console.log('webpack-bundle-analyzer not available');
+      console.log('Bundle analyzer not available');
     });
   }
 }

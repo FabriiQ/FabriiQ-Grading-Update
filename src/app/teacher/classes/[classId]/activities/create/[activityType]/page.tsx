@@ -2,19 +2,19 @@ import { getSessionCache } from "@/utils/session-cache";
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { prisma } from "@/server/db";
-import { ActivityList } from "@/features/activties";
+import { UnifiedActivityCreator } from "@/features/activties/components/UnifiedActivityCreator";
 
 export const metadata: Metadata = {
-  title: "Class Activities",
-  description: "View and manage activities for your class",
+  title: "Create Activity",
+  description: "Create a new activity for your class",
 };
 
-export default async function ClassActivitiesPage({
+export default async function CreateSpecificActivityPage({
   params,
 }: {
-  params: Promise<{ classId: string  }>;
+  params: Promise<{ classId: string; activityType: string }>;
 }) {
-  const { classId  } = await params;
+  const { classId, activityType } = await params;
   const session = await getSessionCache();
 
   if (!session?.user?.id) {
@@ -55,25 +55,11 @@ export default async function ClassActivitiesPage({
   // Get class details
   const classDetails = await prisma.class.findUnique({
     where: { id: classId },
-    include: {
-      courseCampus: {
-        include: {
-          course: {
-            include: {
-              subjects: {
-                where: {
-                  status: 'ACTIVE'
-                },
-                select: {
-                  id: true,
-                  name: true,
-                  code: true
-                }
-              }
-            }
-          }
-        }
-      }
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      status: true,
     }
   });
 
@@ -81,29 +67,25 @@ export default async function ClassActivitiesPage({
     return redirect("/teacher/classes");
   }
 
-  // For now, use empty activities array - this will be populated by the actual data fetching logic
-  const transformedActivities: any[] = [];
-
   return (
     <div className="container mx-auto py-6">
-      <ActivityList
-        activities={transformedActivities}
-        onEdit={(activity) => {
-          // Handle edit navigation
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Create {activityType.replace('-', ' ')} Activity</h1>
+        <p className="text-muted-foreground">Class: {classDetails.name}</p>
+      </div>
+      
+      <UnifiedActivityCreator
+        activityTypeId={activityType}
+        classId={classId}
+        onSuccess={() => {
+          // Navigate back to activities list
+          window.location.href = `/teacher/classes/${classId}/activities`;
         }}
-        onView={(activity) => {
-          // Handle view navigation
+        onCancel={() => {
+          // Navigate back to activity type selector
+          window.location.href = `/teacher/classes/${classId}/activities/create`;
         }}
-        onDuplicate={(activity) => {
-          // Handle duplicate
-        }}
-        onDelete={(activity) => {
-          // Handle delete
-        }}
-        className="w-full"
       />
     </div>
   );
 }
-
-

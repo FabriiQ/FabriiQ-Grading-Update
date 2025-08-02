@@ -6,17 +6,20 @@ import { gradeMultipleResponseActivity } from '../../grading/multiple-response';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
 import { ActivityButton } from '../ui/ActivityButton';
 import { AnimatedSubmitButton } from '../ui/AnimatedSubmitButton';
+import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
 import { ProgressIndicator } from '../ui/ProgressIndicator';
 import { QuestionHint } from '../ui/QuestionHint';
 import { RichTextDisplay } from '../ui/RichTextDisplay';
 import { MediaDisplay } from '../ui/MediaDisplay';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
+import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
 import { Check, X } from 'lucide-react';
 
 export interface MultipleResponseViewerProps {
   activity: MultipleResponseActivity;
   mode?: 'student' | 'teacher';
+  studentId?: string; // Student ID for submission tracking
   onSubmit?: (answers: Record<string, string[]>, result: any) => void;
   onProgress?: (progress: number) => void;
   className?: string;
@@ -36,16 +39,22 @@ export interface MultipleResponseViewerProps {
 export const MultipleResponseViewer: React.FC<MultipleResponseViewerProps> = ({
   activity,
   mode = 'student',
+  studentId,
   onSubmit,
   onProgress,
   className,
   submitButton
 }) => {
+  // Memory leak prevention
+  const { isMounted } = useMemoryLeakPrevention('multiple-response-viewer');
+
   // State for tracking selected answers and submission
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string[]>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [score, setScore] = useState<number | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
+  const [startTime] = useState(new Date());
 
   // Refs for animation effects
   const optionRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -449,40 +458,47 @@ export const MultipleResponseViewer: React.FC<MultipleResponseViewerProps> = ({
         ))}
       </div>
 
-      {/* Action buttons */}
+      {/* Action buttons - UPDATED: Using UniversalActivitySubmit */}
       <div className="mt-8 flex justify-between">
-        {!isSubmitted ? (
-          submitButton ? (
-            // Use the universal submit button if provided
-            React.cloneElement(submitButton as React.ReactElement, {
-              onClick: handleSubmit,
-              disabled: !allQuestionsAnswered,
-              loading: isSubmitting,
-              submitted: false,
-              children: 'Submit'
-            })
-          ) : (
-            // Fallback to AnimatedSubmitButton if no universal button provided
-            <AnimatedSubmitButton
-              onClick={handleSubmit}
-              disabled={!allQuestionsAnswered}
-              loading={isSubmitting}
-              submitted={false}
-              className="min-w-[140px]"
-            >
-              Submit
-            </AnimatedSubmitButton>
-          )
-        ) : (
-          <ActivityButton
-            onClick={handleReset}
-            variant="secondary"
-            icon="refresh"
-            size="lg"
-          >
-            Try Again
-          </ActivityButton>
-        )}
+        <UniversalActivitySubmit
+          config={{
+            activityId: activity.id,
+            activityType: 'multiple-response',
+            studentId: studentId || 'anonymous',
+            answers: selectedAnswers,
+            timeSpent: Math.floor((Date.now() - startTime.getTime()) / 1000),
+            attemptNumber: 1,
+            metadata: {
+              startTime: startTime,
+              questionCount: activity.questions.length,
+              interactionCount: Object.keys(selectedAnswers).length
+            }
+          }}
+          disabled={!allQuestionsAnswered}
+          onSubmissionComplete={(result) => {
+            if (!isMounted()) return;
+            setIsSubmitted(true);
+            setSubmissionResult(result);
+            onSubmit?.(selectedAnswers, result);
+          }}
+          onSubmissionError={(error) => {
+            console.error('Multiple Response submission error:', error);
+          }}
+          validateAnswers={(answers) => {
+            const answeredCount = Object.keys(answers).length;
+            if (answeredCount === 0) {
+              return 'Please answer at least one question.';
+            }
+            if (answeredCount < activity.questions.length) {
+              return `Please answer all ${activity.questions.length} questions.`;
+            }
+            return true;
+          }}
+          showTryAgain={true}
+          className="min-w-[140px]"
+        >
+          Submit Multiple Response
+        </UniversalActivitySubmit>
 
         {mode === 'teacher' && (
           <ActivityButton

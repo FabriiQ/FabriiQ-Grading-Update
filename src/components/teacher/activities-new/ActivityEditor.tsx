@@ -28,7 +28,8 @@ import {
   QuizEditor,
   ReadingEditor,
   VideoEditor,
-  
+  EssayEditor, // ADDED: Essay activity editor
+
   // Import viewer components for preview
   MultipleChoiceViewer,
   TrueFalseViewer,
@@ -43,6 +44,7 @@ import {
   QuizViewer,
   ReadingViewer,
   VideoViewer,
+  EssayViewer, // ADDED: Essay activity viewer
 } from '@/features/activties';
 
 interface ActivityEditorProps {
@@ -112,6 +114,7 @@ export function ActivityEditor({
     const commonProps = {
       activity,
       onChange: setActivity,
+      onSave: handleSave,
     };
     
     switch (activity.activityType) {
@@ -141,6 +144,8 @@ export function ActivityEditor({
         return <ReadingEditor {...commonProps} />;
       case 'video':
         return <VideoEditor {...commonProps} />;
+      case 'essay':
+        return <EssayEditor {...commonProps} />; // ADDED: Essay activity editor
       default:
         return <div>No editor available for this activity type</div>;
     }

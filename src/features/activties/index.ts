@@ -83,6 +83,8 @@ export { ReadingEditor } from './components/reading/ReadingEditor';
 export { VideoViewer } from './components/video/VideoViewer';
 export { VideoEditor } from './components/video/VideoEditor';
 export { BookViewer } from './components/book/BookViewer';
+export { EssayViewer } from './components/essay/EssayViewer';
+export { EssayEditor } from './components/essay/EssayEditor';
 export { BookEditor } from './components/book/BookEditor';
 export { ManualGradingViewer } from './components/activity-viewers/ManualGradingViewer';
 export { ManualGradingCreator } from './components/activity-creators/ManualGradingCreator';
@@ -101,6 +103,10 @@ export { JinaImageSearch } from './components/ui/JinaImageSearch';
 export { MediaSelector } from './components/ui/MediaSelector';
 export { AccessibilityTester } from './components/ui/AccessibilityTester';
 export { ThemeWrapper } from './components/ui/ThemeWrapper';
+export { UniversalActivitySubmit } from './components/ui/UniversalActivitySubmit'; // ADDED: Universal submit component
+export { EnhancedActivityConfig, type UnifiedActivityConfig } from './components/ui/EnhancedActivityConfig'; // ADDED: Enhanced configuration system
+export { ActivityTypeSelectorGrid } from './components/ActivityTypeSelectorGrid'; // ADDED: Activity type selector
+export { ActivityList } from './components/ActivityList'; // ADDED: Activity list component
 
 // Reward Integration
 export { ActivityCompletionHandler } from './components/reward-integration/ActivityCompletionHandler';
@@ -164,6 +170,7 @@ export {
   type AnalyticsProvider
 } from './analytics/activity-analytics';
 export { useActivityAnalytics } from './hooks/useActivityAnalytics';
+export { useActivitySubmission } from './hooks/useActivitySubmission'; // ADDED: Activity submission hook
 
 // State Management
 export { ActivityStateProvider, useActivityState } from './state';

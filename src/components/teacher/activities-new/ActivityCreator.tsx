@@ -33,6 +33,7 @@ import {
   QuizEditor,
   ReadingEditor,
   VideoEditor,
+  EssayEditor, // ADDED: Essay activity editor
 
   // Import activity creators
   createDefaultMultipleChoiceActivity,
@@ -48,6 +49,7 @@ import {
   createDefaultQuizActivity,
   createDefaultReadingActivity,
   createDefaultVideoActivity,
+  createDefaultEssayActivity, // ADDED: Essay activity creator
 
   // Import viewer components for preview
   MultipleChoiceViewer,
@@ -63,6 +65,11 @@ import {
   QuizViewer,
   ReadingViewer,
   VideoViewer,
+  EssayViewer, // ADDED: Essay activity viewer
+
+  // Enhanced configuration system
+  EnhancedActivityConfig,
+  type UnifiedActivityConfig,
 } from '@/features/activties';
 
 interface ActivityCreatorProps {
@@ -228,6 +235,9 @@ export function ActivityCreator({ classId, onSuccess, onCancel, className }: Act
       case 'video':
         newActivity = createDefaultVideoActivity();
         break;
+      case 'essay':
+        newActivity = createDefaultEssayActivity(); // ADDED: Essay activity creation
+        break;
       default:
         return;
     }
@@ -371,6 +381,8 @@ export function ActivityCreator({ classId, onSuccess, onCancel, className }: Act
           return <ReadingEditor {...commonProps} />;
         case 'video':
           return <VideoEditor {...commonProps} />;
+        case 'essay':
+          return <EssayEditor {...commonProps} />; // ADDED: Essay activity editor
         default:
           return <div>No editor available for this activity type</div>;
       }

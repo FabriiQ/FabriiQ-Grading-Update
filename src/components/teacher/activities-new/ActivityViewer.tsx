@@ -26,6 +26,7 @@ import {
   QuizViewer,
   ReadingViewer,
   VideoViewer,
+  EssayViewer, // ADDED: Essay activity viewer
 } from '@/features/activties';
 
 interface ActivityViewerProps {
@@ -64,7 +65,8 @@ export function ActivityViewer({
       'numeric': 'Numeric',
       'quiz': 'Quiz',
       'reading': 'Reading',
-      'video': 'Video'
+      'video': 'Video',
+      'essay': 'Essay' // ADDED: Essay activity type name
     };
 
     return typeMap[type] || type;
@@ -108,6 +110,8 @@ export function ActivityViewer({
           return <ReadingViewer {...commonProps} />;
         case 'video':
           return <VideoViewer {...commonProps} />;
+        case 'essay':
+          return <EssayViewer {...commonProps} />; // ADDED: Essay activity viewer
         default:
           return <div>No viewer available for this activity type</div>;
       }

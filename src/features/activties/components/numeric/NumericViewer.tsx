@@ -4,10 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NumericActivity, NumericQuestion, isNumericAnswerCorrect } from '../../models/numeric';
 import { ActivityButton } from '../ui/ActivityButton';
 import { AnimatedSubmitButton } from '../ui/AnimatedSubmitButton';
+import { UniversalActivitySubmit } from '../ui/UniversalActivitySubmit';
 import { ProgressIndicator } from '../ui/ProgressIndicator';
 import { QuestionHint } from '../ui/QuestionHint';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { useActivityAnalytics } from '../../hooks/useActivityAnalytics';
+import { useMemoryLeakPrevention } from '../../services/memory-leak-prevention.service';
 import { cn } from '@/lib/utils';
 
 // Animation styles
@@ -86,6 +88,7 @@ const numericAnimationStyles = `
 export interface NumericViewerProps {
   activity: NumericActivity;
   mode?: 'student' | 'teacher';
+  studentId?: string; // Student ID for submission tracking
   onSubmit?: (answers: Record<string, number>, result: any) => void;
   onProgress?: (progress: number) => void;
   className?: string;
@@ -108,16 +111,22 @@ export interface NumericViewerProps {
 export const NumericViewer: React.FC<NumericViewerProps> = ({
   activity,
   mode = 'student',
+  studentId,
   onSubmit,
   onProgress,
   className,
   submitButton
 }) => {
+  // Memory leak prevention
+  const { isMounted } = useMemoryLeakPrevention('numeric-viewer');
+
   // State for tracking answers and submission
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [userInputs, setUserInputs] = useState<Record<string, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [score, setScore] = useState<number | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
+  const [startTime] = useState(new Date());
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [inputAnimation, setInputAnimation] = useState<Record<string, string>>({});
   const [showCalculator, setShowCalculator] = useState(false);
@@ -670,37 +679,47 @@ export const NumericViewer: React.FC<NumericViewerProps> = ({
 
         {/* Submit/Reset buttons */}
         <div className="flex justify-center sm:justify-end space-x-2">
-          {!isSubmitted ? (
-            submitButton ? (
-              // Use the universal submit button if provided
-              React.cloneElement(submitButton as React.ReactElement, {
-                onClick: handleSubmit,
-                disabled: !allQuestionsAnswered,
-                loading: false,
-                submitted: false,
-                className: "min-w-[120px] min-h-[44px]",
-                children: 'Submit'
-              })
-            ) : (
-              // Use AnimatedSubmitButton with reward integration
-              <AnimatedSubmitButton
-                onClick={handleSubmit}
-                disabled={!allQuestionsAnswered}
-                className="min-w-[120px] min-h-[44px] px-6 py-3"
-              >
-                Submit Answers
-              </AnimatedSubmitButton>
-            )
-          ) : (
-            <ActivityButton
-              onClick={handleReset}
-              variant="secondary"
-              icon="refresh"
-              className="min-w-[120px] min-h-[44px]"
-            >
-              Try Again
-            </ActivityButton>
-          )}
+          <UniversalActivitySubmit
+            config={{
+              activityId: activity.id,
+              activityType: 'numeric',
+              studentId: studentId || 'anonymous',
+              answers: answers,
+              timeSpent: Math.floor((Date.now() - startTime.getTime()) / 1000),
+              attemptNumber: 1,
+              metadata: {
+                startTime: startTime,
+                questionCount: activity.questions.length,
+                answeredCount: Object.keys(answers).length,
+                currentQuestion: currentQuestionIndex,
+                calculatorUsed: showCalculator
+              }
+            }}
+            disabled={!allQuestionsAnswered}
+            onSubmissionComplete={(result) => {
+              if (!isMounted()) return;
+              setIsSubmitted(true);
+              setSubmissionResult(result);
+              onSubmit?.(answers, result);
+            }}
+            onSubmissionError={(error) => {
+              console.error('Numeric submission error:', error);
+            }}
+            validateAnswers={(answers) => {
+              const answeredCount = Object.keys(answers).length;
+              if (answeredCount === 0) {
+                return 'Please answer at least one question before submitting.';
+              }
+              if (answeredCount < activity.questions.length) {
+                return `Please answer all ${activity.questions.length} questions.`;
+              }
+              return true;
+            }}
+            showTryAgain={true}
+            className="min-w-[120px] min-h-[44px] px-6 py-3"
+          >
+            Submit Numeric Answers
+          </UniversalActivitySubmit>
 
           {mode === 'teacher' && (
             <ActivityButton
