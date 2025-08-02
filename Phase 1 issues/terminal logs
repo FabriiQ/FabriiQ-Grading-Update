@@ -1,0 +1,565 @@
+[DEBUG] Initialized rewards cache with max size: 5000 
+[DEBUG] Initialized rewards cache with max size: 10000
+[DEBUG] Initialized rewards cache with max size: 1000
+[DEBUG] Initialized memory cache for namespace: app 
+[DEBUG] Initialized memory cache for namespace: user
+[DEBUG] Initialized memory cache for namespace: data
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+ GET /api/auth/providers 200 in 94ms
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+ GET /api/auth/csrf 200 in 99ms
+[DEBUG] [AUTH] Redirect callback {
+  "url": "/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Using role-specific URL directly {
+  "url": "/teacher/dashboard"
+}
+[DEBUG] [AUTH] User authenticated successfully {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "username": "robert_brown",
+  "userType": "TEACHER"
+}
+[DEBUG] [AUTH] JWT token created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER"
+}
+[DEBUG] [AUTH] User signed in {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER"
+}
+ POST /api/auth/callback/credentials 200 in 995ms
+ ○ Compiling /teacher/dashboard ...
+ ✓ Compiled /teacher/dashboard in 14.8s (8584 modules)
+[DEBUG] Cache cleanup: removed 1 expired items 
+[DEBUG] Cache cleanup: removed 1 expired items
+[NavigationHandler] Institution context not available - using default behavior
+[WARN] [AUTH] Warning: DEBUG_ENABLED 
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+ GET /api/trpc/systemConfig.getBranding?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%7D%7D%7D 200 in 28402ms
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+ GET /api/auth/session 200 in 296ms
+ GET /teacher/dashboard 200 in 22733ms
+[DEBUG] Initialized rewards cache with max size: 5000 
+[DEBUG] Initialized rewards cache with max size: 10000
+[DEBUG] Initialized rewards cache with max size: 1000
+[DEBUG] Initialized memory cache for namespace: app 
+[DEBUG] Initialized memory cache for namespace: user
+[DEBUG] Initialized memory cache for namespace: data
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+[DEBUG] Session found in tRPC handler {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER"
+}
+[DEBUG] Session provided to createTRPCContext {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER"
+}
+Error in getUserNotifications: Error [PrismaClientValidationError]: 
+Invalid `prisma.user.findUnique()` invocation:
+
+{
+  where: {
+    id: "cmcd6vez200f6ryzpcbktbwj8"
+  },
+  select: {
+    metadata: true,
+    ~~~~~~~~
+?   id?: true,
+?   name?: true,
+?   email?: true,
+?   username?: true,
+?   phoneNumber?: true,
+?   password?: true,
+?   status?: true,
+?   userType?: true,
+?   emailVerified?: true,
+?   dateOfBirth?: true,
+?   profileData?: true,
+?   accessScope?: true,
+?   primaryCampusId?: true,
+?   createdAt?: true,
+?   updatedAt?: true,
+?   deletedAt?: true,
+?   lastLoginAt?: true,
+?   resetToken?: true,
+?   resetTokenExpiry?: true,
+?   institutionId?: true,
+?   sessions?: true,
+?   createdEvents?: true,
+?   createdCycles?: true,
+?   updatedCycles?: true,
+?   ActivityGrade?: true,
+?   createdCharges?: true,
+?   updatedCharges?: true,
+?   analyticsEvents?: true,
+?   analyticsMetrics?: true,
+?   archivedActivityGrades?: true,
+?   createdPolicies?: true,
+?   updatedPolicies?: true,
+?   gradedSubmissions?: true,
+?   createdAssessments?: true,
+?   updatedAssessments?: true,
+?   auditLogs?: true,
+?   canvases?: true,
+?   createdTemplates?: true,
+?   updatedTemplates?: true,
+?   conversationParticipations?: true,
+?   coordinatorProfile?: true,
+?   createdDiscountTypes?: true,
+?   updatedDiscountTypes?: true,
+?   createdEnrollmentFees?: true,
+?   updatedEnrollmentFees?: true,
+?   createdEnrollmentHistory?: true,
+?   createdArrears?: true,
+?   updatedArrears?: true,
+?   createdChallans?: true,
+?   updatedChallans?: true,
+?   approvedDiscounts?: true,
+?   createdDiscounts?: true,
+?   updatedDiscounts?: true,
+?   createdFeeStructures?: true,
+?   updatedFeeStructures?: true,
+?   createdFeeTransactions?: true,
+?   updatedFeeTransactions?: true,
+?   createdFeedback?: true,
+?   feedbackResponses?: true,
+?   files?: true,
+?   createdGradeBooks?: true,
+?   updatedGradeBooks?: true,
+?   createdGradingScales?: true,
+?   updatedGradingScales?: true,
+?   createdH5PContents?: true,
+?   h5pCompletions?: true,
+?   createdHolidays?: true,
+?   adminApprovals?: true,
+?   coordinatorApprovals?: true,
+?   sentMessages?: true,
+?   createdQuestionBanks?: true,
+?   updatedQuestionBanks?: true,
+?   questionVersions?: true,
+?   createdQuestions?: true,
+?   updatedQuestions?: true,
+?   resourcePermissions?: true,
+?   ownedResources?: true,
+?   createdEnrollments?: true,
+?   updatedEnrollments?: true,
+?   studentFeedbacks?: true,
+?   studentProfile?: true,
+?   teacherFeedbacks?: true,
+?   teacherProfile?: true,
+?   activeCampuses?: true,
+?   permissions?: true,
+?   institution?: true,
+?   calendarEvents?: true,
+?   holidays?: true,
+?   learningOutcomes?: true,
+?   rubrics?: true,
+?   activityTemplates?: true,
+?   activities?: true,
+?   topicMasteries?: true,
+?   assessmentResults?: true,
+?   createdSystemConfigs?: true,
+?   updatedSystemConfigs?: true,
+?   teacherPreferences?: true,
+?   socialPosts?: true,
+?   socialComments?: true,
+?   socialReactions?: true,
+?   socialTaggedIn?: true,
+?   socialCreatedTags?: true,
+?   socialActivityTags?: true,
+?   socialModeratedPosts?: true,
+?   socialModeratedComments?: true,
+?   socialModerationLogs?: true,
+?   socialModeratedUserLogs?: true,
+?   socialArchives?: true,
+?   socialReports?: true,
+?   socialModeratedReports?: true,
+?   notifications?: true,
+?   _count?: true
+  }
+}
+
+Unknown field `metadata` for select statement on model `User`. Available options are marked with ?.
+    at async NotificationService.getUserNotifications (webpack-internal:///(rsc)/./src/server/api/services/notification.service.ts:295:26)
+    at async eval (webpack-internal:///(rsc)/./src/server/api/routers/notification.ts:321:28)
+    at async eval (webpack-internal:///(rsc)/./src/server/api/middleware/performance.middleware.ts:26:20)
+    at async eval (webpack-internal:///(rsc)/./src/server/api/middleware/error-handling.middleware.ts:20:16) {
+  clientVersion: '5.22.0'
+}
+[WARN] Procedure execution approaching threshold {
+  "path": "notification.getUserNotifications",
+  "executionTime": "747.55ms",
+  "threshold": "500ms"
+}
+[WARN] Procedure execution approaching threshold {
+  "path": "systemConfig.getBranding",
+  "executionTime": "975.41ms",
+  "threshold": "500ms"
+}
+[ERROR] Slow procedure execution {
+  "path": "teacherAnalytics.getTeacherMetrics",
+  "executionTime": "1718.95ms",
+  "threshold": "1000ms"
+}
+[ERROR] Slow procedure execution {
+  "path": "teacher.getTeacherClasses",
+  "executionTime": "2427.41ms",
+  "threshold": "1000ms"
+}
+[ERROR] Slow procedure execution {
+  "path": "teacherLeaderboard.getTeacherLeaderboard",
+  "executionTime": "2489.96ms",
+  "threshold": "1000ms"
+}
+[ERROR] Slow procedure execution {
+  "path": "analytics.getTeacherStats",
+  "executionTime": "3157.13ms",
+  "threshold": "1000ms"
+}
+ GET /api/trpc/systemConfig.getBranding,notification.getUserNotifications,analytics.getTeacherStats,teacherLeaderboard.getTeacherLeaderboard,teacherAnalytics.getTeacherMetrics,teacher.getTeacherClasses?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22limit%22%3A20%2C%22includeRead%22%3Afalse%7D%7D%2C%222%22%3A%7B%22json%22%3A%7B%22teacherId%22%3A%22cmcd6vf2a00f8ryzpzolwck9m%22%7D%7D%2C%223%22%3A%7B%22json%22%3A%7B%22campusId%22%3A%22cmcd6eiuo0002vl4rj7ji0q6j%22%2C%22timeframe%22%3A%22term%22%2C%22limit%22%3A5%2C%22sortBy%22%3A%22points%22%7D%7D%2C%224%22%3A%7B%22json%22%3A%7B%22teacherId%22%3A%22cmcd6vf2a00f8ryzpzolwck9m%22%7D%7D%2C%225%22%3A%7B%22json%22%3A%7B%22teacherId%22%3A%22cmcd6vf2a00f8ryzpzolwck9m%22%7D%7D%7D 200 in 6038ms
+[DEBUG] Initialized rewards cache with max size: 5000 
+[DEBUG] Initialized rewards cache with max size: 10000
+[DEBUG] Initialized rewards cache with max size: 1000
+[DEBUG] Initialized memory cache for namespace: app 
+[DEBUG] Initialized memory cache for namespace: user
+[DEBUG] Initialized memory cache for namespace: data
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+ GET /api/auth/session 200 in 99ms
+ ○ Compiling /teacher/classes ...
+ ✓ Compiled /teacher/classes in 3.9s (8569 modules)
+[WARN] [AUTH] Warning: DEBUG_ENABLED 
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+ GET /teacher/classes 200 in 4983ms
+ GET /teacher/classes 200 in 877ms
+ ○ Compiling /teacher/classes/[classId] ...
+ ✓ Compiled /teacher/classes/[classId] in 8.3s (8591 modules)
+[WARN] [AUTH] Warning: DEBUG_ENABLED 
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+ GET /api/auth/session 200 in 642ms
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+Memory usage (MB): { rss: 1656, heapTotal: 1686, heapUsed: 1619, external: 1468 }
+High memory usage detected: { rss: 1656, heapTotal: 1686, heapUsed: 1619, external: 1468 }
+ GET /teacher/classes/cmcd6fi6m00g8vl4rp1huzjj8 200 in 19643ms
+[DEBUG] Initialized rewards cache with max size: 5000 
+[DEBUG] Initialized rewards cache with max size: 10000
+[DEBUG] Initialized rewards cache with max size: 1000
+[DEBUG] Initialized memory cache for namespace: app 
+[DEBUG] Initialized memory cache for namespace: user
+[DEBUG] Initialized memory cache for namespace: data
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+[DEBUG] Session found in tRPC handler {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER"
+}
+[DEBUG] Session provided to createTRPCContext {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER"
+}
+[DEBUG] Class stats cache miss, computing {
+  "classId": "cmcd6fi6m00g8vl4rp1huzjj8",
+  "cacheKey": "class-stats:cmcd6fi6m00g8vl4rp1huzjj8:2025-06-29-2025-07-29"
+}
+[DEBUG] Attendance records cache miss, computing {
+  "classId": "cmcd6fi6m00g8vl4rp1huzjj8",
+  "cacheKey": "records:cmcd6fi6m00g8vl4rp1huzjj8:all:2025-07-22-2025-07-29"
+}
+[ERROR] Slow procedure execution {
+  "path": "attendance.getRecords",
+  "executionTime": "1150.71ms",
+  "threshold": "1000ms"
+}
+[ERROR] Error getting class leaderboard {
+  "error": {
+    "name": "TypeError",
+    "message": "Cannot read properties of undefined (reading 'class')",
+    "stack": "TypeError: Cannot read properties of undefined (reading 'class')\n    at OptimizedLeaderboardService.getClassLeaderboard (webpack-internal:///(rsc)/./src/server/api/services/leaderboard.service.optimized.ts:33:51)\n    at eval (webpack-internal:///(rsc)/./src/server/api/routers/rewards.ts:157:62)"
+  },
+  "classId": "cmcd6fi6m00g8vl4rp1huzjj8",
+  "filters": {
+    "period": "WEEKLY",
+    "limit": 3
+  }
+}
+Error fetching leaderboard: TypeError: Cannot read properties of undefined (reading 'class')
+    at OptimizedLeaderboardService.getClassLeaderboard (webpack-internal:///(rsc)/./src/server/api/services/leaderboard.service.optimized.ts:33:51)
+    at eval (webpack-internal:///(rsc)/./src/server/api/routers/rewards.ts:157:62)
+    at async eval (webpack-internal:///(rsc)/./src/server/api/middleware/performance.middleware.ts:26:20)
+    at async eval (webpack-internal:///(rsc)/./src/server/api/middleware/error-handling.middleware.ts:20:16)
+[ERROR] Slow procedure execution {
+  "path": "rewards.getClassRewardsData",
+  "executionTime": "1192.21ms",
+  "threshold": "1000ms"
+}
+[ERROR] Slow procedure execution {
+  "path": "attendance.getClassStats",
+  "executionTime": "1658.94ms",
+  "threshold": "1000ms"
+}
+[ERROR] Slow procedure execution {
+  "path": "teacher.getUpcomingClassAssessments",
+  "executionTime": "2047.46ms",
+  "threshold": "1000ms"
+}
+[ERROR] Slow procedure execution {
+  "path": "teacher.getRecentClassActivities",
+  "executionTime": "3418.71ms",
+  "threshold": "1000ms"
+}
+[DEBUG] Initialized rewards cache with max size: 5000 
+[DEBUG] Initialized rewards cache with max size: 10000
+[DEBUG] Initialized rewards cache with max size: 1000
+[DEBUG] Initialized memory cache for namespace: app 
+[DEBUG] Initialized memory cache for namespace: user
+[DEBUG] Initialized memory cache for namespace: data
+[ERROR] Slow procedure execution {
+  "path": "teacher.getClassById",
+  "executionTime": "4385.00ms",
+  "threshold": "1000ms"
+}
+[ERROR] Slow procedure execution {
+  "path": "teacher.getClassMetrics",
+  "executionTime": "4781.38ms",
+  "threshold": "1000ms"
+}
+ GET /api/trpc/teacher.getClassById,teacher.getClassMetrics,teacher.getRecentClassActivities,teacher.getUpcomingClassAssessments,attendance.getClassStats,attendance.getRecords,rewards.getClassRewardsData?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22classId%22%3A%22cmcd6fi6m00g8vl4rp1huzjj8%22%7D%7D%2C%221%22%3A%7B%22json%22%3A%7B%22classId%22%3A%22cmcd6fi6m00g8vl4rp1huzjj8%22%7D%7D%2C%222%22%3A%7B%22json%22%3A%7B%22classId%22%3A%22cmcd6fi6m00g8vl4rp1huzjj8%22%2C%22limit%22%3A5%7D%7D%2C%223%22%3A%7B%22json%22%3A%7B%22classId%22%3A%22cmcd6fi6m00g8vl4rp1huzjj8%22%2C%22limit%22%3A5%7D%7D%2C%224%22%3A%7B%22json%22%3A%7B%22classId%22%3A%22cmcd6fi6m00g8vl4rp1huzjj8%22%2C%22startDate%22%3A%222025-06-29T06%3A22%3A55.818Z%22%2C%22endDate%22%3A%222025-07-29T06%3A22%3A55.818Z%22%7D%2C%22meta%22%3A%7B%22values%22%3A%7B%22startDate%22%3A%5B%22Date%22%5D%2C%22endDate%22%3A%5B%22Date%22%5D%7D%7D%7D%2C%225%22%3A%7B%22json%22%3A%7B%22classId%22%3A%22cmcd6fi6m00g8vl4rp1huzjj8%22%2C%22startDate%22%3A%222025-07-22T06%3A22%3A55.818Z%22%2C%22endDate%22%3A%222025-07-29T06%3A22%3A55.818Z%22%7D%2C%22meta%22%3A%7B%22values%22%3A%7B%22startDate%22%3A%5B%22Date%22%5D%2C%22endDate%22%3A%5B%22Date%22%5D%7D%7D%7D%2C%226%22%3A%7B%22json%22%3A%7B%22classId%22%3A%22cmcd6fi6m00g8vl4rp1huzjj8%22%2C%22includeStudents%22%3Afalse%2C%22includeLeaderboard%22%3Atrue%2C%22leaderboardLimit%22%3A3%7D%7D%7D 200 in 8166ms
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+ GET /api/auth/session 200 in 127ms
+ ○ Compiling /teacher/classes/[classId]/students ...
+ ✓ Compiled /teacher/classes/[classId]/students in 1843ms (8601 modules)
+[WARN] [AUTH] Warning: DEBUG_ENABLED 
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+ GET /teacher/classes/cmcd6fi6m00g8vl4rp1huzjj8/students 200 in 6585ms
+[DEBUG] Initialized rewards cache with max size: 5000 
+[DEBUG] Initialized rewards cache with max size: 10000
+[DEBUG] Initialized rewards cache with max size: 1000
+[DEBUG] Initialized memory cache for namespace: app 
+[DEBUG] Initialized memory cache for namespace: user
+[DEBUG] Initialized memory cache for namespace: data
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+[DEBUG] Session found in tRPC handler {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER"
+}
+[DEBUG] Session provided to createTRPCContext {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER"
+}
+[WARN] Procedure execution approaching threshold {
+  "path": "teacher.getClassStudents",
+  "executionTime": "603.22ms",
+  "threshold": "500ms"
+}
+ GET /api/trpc/teacher.getClassStudents?batch=1&input=%7B%220%22%3A%7B%22json%22%3A%7B%22classId%22%3A%22cmcd6fi6m00g8vl4rp1huzjj8%22%7D%7D%7D 200 in 2415ms
+[DEBUG] Initialized rewards cache with max size: 5000 
+[DEBUG] Initialized rewards cache with max size: 10000
+[DEBUG] Initialized rewards cache with max size: 1000
+[DEBUG] Initialized memory cache for namespace: app 
+[DEBUG] Initialized memory cache for namespace: user
+[DEBUG] Initialized memory cache for namespace: data
+[DEBUG] [AUTH] Redirect callback {
+  "url": "http://localhost:3000/teacher/dashboard",
+  "baseUrl": "http://localhost:3000"
+}
+[DEBUG] [AUTH] Session created {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8",
+  "userType": "TEACHER",
+  "hasPrimaryCampus": true
+}
+[DEBUG] [AUTH] Session accessed {
+  "userId": "cmcd6vez200f6ryzpcbktbwj8"
+}
+ GET /api/auth/session 200 in 149ms
+ ○ Compiling /teacher/classes/[classId]/social-wall ...
+ ✓ Compiled /teacher/classes/[classId]/social-wall in 38.1s (9016 modules)
+
+<--- Last few GCs --->
+
+[19644:0000023D71CD0700]   431623 ms: Scavenge 2028.4 (2080.1) -> 2026.6 (2080.1) MB, 7.97 / 0.00 ms  (average mu = 0.371, current mu = 0.353) allocation failure;
+[19644:0000023D71CD0700]   432810 ms: Mark-Compact (reduce) 2039.2 (2090.6) -> 2026.6 (2080.3) MB, 850.82 / 0.01 ms  (+ 72.4 ms in 7 steps since start of marking, biggest step 19.8 ms, walltime since start of marking 983 ms) (average mu = 0.334, current m
+
+<--- JS stacktrace --->
+
+FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 00007FF7F2B6A19B node::SetCppgcReference+18587
+ 2: 00007FF7F2AD9A68 DSA_meth_get_flags+93176
+ 3: 00007FF7F3552FB1 v8::Isolate::ReportExternalAllocationLimitReached+65
+ 4: 00007FF7F353C708 v8::Function::Experimental_IsNopFunction+1336
+ 5: 00007FF7F339E1B0 v8::Platform::SystemClockTimeMillis+659328
+ 6: 00007FF7F33AA433 v8::Platform::SystemClockTimeMillis+709123
+ 7: 00007FF7F33A7D94 v8::Platform::SystemClockTimeMillis+699236
+ 8: 00007FF7F339AED0 v8::Platform::SystemClockTimeMillis+646304
+ 9: 00007FF7F33B054A v8::Platform::SystemClockTimeMillis+733978
+10: 00007FF7F33B0DC7 v8::Platform::SystemClockTimeMillis+736151
+11: 00007FF7F33BF6BF v8::Platform::SystemClockTimeMillis+795791
+12: 00007FF7F307FDA5 v8::CodeEvent::GetFunctionName+116773
+13: 00007FF7F35FDEDE v8::PropertyDescriptor::writable+650862
+14: 00007FF7F368704B v8::PropertyDescriptor::writable+1212379
+15: 00007FF7749E9DA7
+
+E:\Q3\FabriiQ Social Wall 30-06-25\FabriiQ Social Wall 30-06-25>
