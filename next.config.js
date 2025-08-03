@@ -5,12 +5,12 @@ require('./src/polyfills/worker-polyfill.js');
 const nextConfig = {
   // ESLint configuration
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: process.env.SKIP_LINT === 'true',
     dirs: ['src', 'app'],
   },
   // TypeScript configuration
   typescript: {
-    ignoreBuildErrors: true, // Keep this false to catch actual TS errors
+    ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === 'true',
     
   },
   // Memory optimization settings
