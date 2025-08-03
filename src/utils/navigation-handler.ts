@@ -100,7 +100,7 @@ export function useNavigationHandler() {
 
     // Debounce navigation - prevent multiple rapid clicks
     const now = Date.now();
-    if (now - lastNavigationTimeRef.current < 300) { // 300ms debounce
+    if (now - lastNavigationTimeRef.current < 150) { // 150ms debounce for better responsiveness
       console.log('[NavigationHandler] Navigation debounced, ignoring request');
       return false;
     }
@@ -204,7 +204,7 @@ export function useNavigationHandler() {
         router.push(finalHref);
       }
 
-      // Clean up after a short delay to ensure the new page has loaded
+      // Clean up after a shorter delay to reduce flickering
       setTimeout(() => {
         cleanupNavigation();
 
@@ -212,7 +212,7 @@ export function useNavigationHandler() {
         if (mergedOptions.onAfterNavigate) {
           mergedOptions.onAfterNavigate();
         }
-      }, 300);
+      }, 100);
 
       return true;
     } catch (error) {

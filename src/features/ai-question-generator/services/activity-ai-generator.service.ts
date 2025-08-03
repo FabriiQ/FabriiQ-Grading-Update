@@ -580,5 +580,19 @@ Return a JSON object with this structure:
   }
 }
 
-// Export singleton instance
-export const activityAIGeneratorService = new ActivityAIGeneratorService();
+// Export lazy singleton instance to avoid client-side instantiation
+let _activityAIGeneratorService: ActivityAIGeneratorService | null = null;
+
+export const activityAIGeneratorService = {
+  getInstance(): ActivityAIGeneratorService {
+    if (!_activityAIGeneratorService) {
+      _activityAIGeneratorService = new ActivityAIGeneratorService();
+    }
+    return _activityAIGeneratorService;
+  },
+
+  // Delegate methods for backward compatibility
+  async generateActivityContent(request: ActivityGenerationRequest): Promise<GeneratedActivityContent> {
+    return this.getInstance().generateActivityContent(request);
+  }
+};

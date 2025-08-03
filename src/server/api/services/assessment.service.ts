@@ -207,8 +207,7 @@ export class AssessmentService {
         weightage: input.weightage,
         gradingType: input.gradingType,
         gradingConfig: input.gradingScale ? { scale: input.gradingScale } as InputJsonValue : undefined,
-        // Enhanced fields - store description and instructions in rubric JSON
-        rubric: Object.keys(rubricData).length > 0 ? rubricData as InputJsonValue : undefined,
+        // Remove JSON rubric storage - use only rubricId for proper referencing
         bloomsDistribution: input.bloomsDistribution ? input.bloomsDistribution as InputJsonValue : undefined,
         dueDate: input.dueDate || null,
         status: input.status || SystemStatus.ACTIVE,
@@ -292,7 +291,10 @@ export class AssessmentService {
   /**
    * Get assessment by ID with related data
    */
-  async getAssessment(id: string) {
+  async getAssessment(id: string, options?: { includeSubmissions?: boolean; includeRubric?: boolean }) {
+    const includeRubric = options?.includeRubric !== false; // Default to true
+    const includeSubmissions = options?.includeSubmissions !== false; // Default to true
+
     const assessment = await this.prisma.assessment.findUnique({
       where: { id },
       include: {
@@ -310,38 +312,48 @@ export class AssessmentService {
             },
           },
         },
-        bloomsRubric: {
-          include: {
-            criteria: {
-              include: {
-                criteriaLevels: {
-                  include: {
-                    performanceLevel: true,
+        ...(includeRubric && {
+          bloomsRubric: {
+            include: {
+              criteria: {
+                include: {
+                  criteriaLevels: {
+                    include: {
+                      performanceLevel: true,
+                    },
+                  },
+                },
+              },
+              performanceLevels: true,
+            },
+          },
+        }),
+        ...(includeSubmissions && {
+          submissions: {
+            select: {
+              id: true,
+              status: true,
+              submittedAt: true,
+              createdAt: true,
+              score: true,
+              timeSpentMinutes: true,
+              bloomsLevelScores: true,
+              topicMasteryChanges: true,
+              learningOutcomeAchievements: true,
+              student: {
+                select: {
+                  id: true,
+                  user: {
+                    select: {
+                      name: true,
+                      email: true,
+                    },
                   },
                 },
               },
             },
-            performanceLevels: true,
           },
-        },
-        submissions: {
-          select: {
-            id: true,
-            status: true,
-            submittedAt: true,
-            score: true,
-            student: {
-              select: {
-                id: true,
-                user: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-        },
+        }),
         _count: {
           select: {
             submissions: true,

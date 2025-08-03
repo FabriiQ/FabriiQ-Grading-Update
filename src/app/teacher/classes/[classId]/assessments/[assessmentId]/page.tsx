@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/trpc/react";
+import { useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -28,6 +29,40 @@ interface AssessmentWithDetails {
   dueDate?: Date;
   createdAt: Date;
   updatedAt: Date;
+  rubricId?: string;
+  bloomsRubric?: {
+    id: string;
+    title: string;
+    description?: string;
+    type: string;
+    maxScore: number;
+    criteria?: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      bloomsLevel: BloomsTaxonomyLevel;
+      weight: number;
+      criteriaLevels?: Array<{
+        id: string;
+        performanceLevel?: {
+          id: string;
+          name: string;
+          description?: string;
+          minScore: number;
+          maxScore: number;
+          color?: string;
+        };
+      }>;
+    }>;
+    performanceLevels?: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      minScore: number;
+      maxScore: number;
+      color?: string;
+    }>;
+  };
   subject?: {
     id: string;
     code: string;
@@ -43,6 +78,11 @@ interface AssessmentWithDetails {
     status: SubmissionStatus;
     score: number | null;
     submittedAt: Date | null;
+    createdAt: Date;
+    timeSpentMinutes?: number;
+    bloomsLevelScores?: string;
+    topicMasteryChanges?: string;
+    learningOutcomeAchievements?: string;
     student?: {
       id: string;
       user: {
@@ -62,6 +102,7 @@ export default function AssessmentDetailPage() {
   const classId = params?.classId as string;
   const assessmentId = params?.assessmentId as string;
 
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   // Fetch assessment details
   const { data: assessmentData, isLoading: isLoadingAssessment } = api.assessment.getById.useQuery({
     assessmentId,
@@ -80,8 +121,137 @@ export default function AssessmentDetailPage() {
     enabled: !!classId
   });
 
+  // Fetch real analytics data
+  const { data: analyticsData } = api.assessment.getAnalytics.useQuery(
+    { assessmentId },
+    { enabled: !!assessmentId }
+  );
 
+  // Cast the assessment data to our interface to fix TypeScript errors
+  const assessment = assessmentData as unknown as AssessmentWithDetails;
 
+  // Calculate submission stats with proper null checks
+  const submissions = assessment?.submissions || [];
+  const totalSubmissions = submissions.length;
+  const gradedSubmissions = submissions.filter(
+    (sub) => sub.status === SubmissionStatus.GRADED
+  ).length;
+  const pendingSubmissions = totalSubmissions - gradedSubmissions;
+
+  // Calculate real analytics from submissions
+  const realAnalytics = useMemo(() => {
+    if (!assessment || !submissions || submissions.length === 0) {
+      return {
+        totalSubmissions: 0,
+        gradedSubmissions: 0,
+        averageScore: 0,
+        passingRate: 0,
+        completionRate: 0,
+        averageTimeSpent: 0,
+        bloomsDistribution: {
+          [BloomsTaxonomyLevel.REMEMBER]: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+          [BloomsTaxonomyLevel.UNDERSTAND]: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+          [BloomsTaxonomyLevel.APPLY]: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+          [BloomsTaxonomyLevel.ANALYZE]: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+          [BloomsTaxonomyLevel.EVALUATE]: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+          [BloomsTaxonomyLevel.CREATE]: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+        },
+        topicMasteryImpact: [],
+        learningOutcomeAchievement: [],
+        performanceDistribution: [],
+        strugglingStudents: [],
+        topPerformers: [],
+      };
+    }
+
+    const gradedSubs = submissions.filter(s => s.status === 'GRADED' && s.score !== null);
+
+    // Calculate basic metrics
+    const totalScore = gradedSubs.reduce((sum, s) => sum + (s.score || 0), 0);
+    const averageScore = gradedSubs.length > 0 ? totalScore / gradedSubs.length : 0;
+    const passingScore = assessment.passingScore || 60;
+    const passingStudents = gradedSubs.filter(s => (s.score || 0) >= passingScore).length;
+    const passingRate = gradedSubs.length > 0 ? passingStudents / gradedSubs.length : 0;
+    const completionRate = submissions.length > 0 ? submissions.filter(s => s.status !== SubmissionStatus.PENDING).length / submissions.length : 0;
+
+    // Performance distribution
+    const performanceDistribution = [
+      { range: '90-100%', count: gradedSubs.filter(s => (s.score || 0) >= 90).length, percentage: 0 },
+      { range: '80-89%', count: gradedSubs.filter(s => (s.score || 0) >= 80 && (s.score || 0) < 90).length, percentage: 0 },
+      { range: '70-79%', count: gradedSubs.filter(s => (s.score || 0) >= 70 && (s.score || 0) < 80).length, percentage: 0 },
+      { range: '60-69%', count: gradedSubs.filter(s => (s.score || 0) >= 60 && (s.score || 0) < 70).length, percentage: 0 },
+      { range: 'Below 60%', count: gradedSubs.filter(s => (s.score || 0) < 60).length, percentage: 0 },
+    ];
+
+    // Calculate percentages
+    performanceDistribution.forEach(dist => {
+      dist.percentage = gradedSubs.length > 0 ? Math.round((dist.count / gradedSubs.length) * 100) : 0;
+    });
+
+    return analyticsData || {
+      totalSubmissions: submissions.length,
+      gradedSubmissions: gradedSubs.length,
+      averageScore,
+      passingRate: passingRate * 100, // Convert to percentage
+      completionRate: completionRate * 100, // Convert to percentage
+      averageTimeSpent: gradedSubs.reduce((sum, s) => sum + (s.timeSpentMinutes || 0), 0) / Math.max(gradedSubs.length, 1),
+      bloomsDistribution: {
+        [BloomsTaxonomyLevel.REMEMBER]: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+        [BloomsTaxonomyLevel.UNDERSTAND]: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+        [BloomsTaxonomyLevel.APPLY]: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+        [BloomsTaxonomyLevel.ANALYZE]: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+        [BloomsTaxonomyLevel.EVALUATE]: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+        [BloomsTaxonomyLevel.CREATE]: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+      },
+      topicMasteryImpact: [],
+      learningOutcomeAchievement: [],
+      performanceDistribution,
+      strugglingStudents: gradedSubs.filter(s => (s.score || 0) < 60).map(s => ({
+        studentId: s.student?.id || '',
+        studentName: s.student?.user?.name || 'Unknown',
+        score: s.score || 0,
+        weakAreas: [] // Will be populated by analytics service
+      })),
+      topPerformers: gradedSubs.filter(s => (s.score || 0) >= 90).map(s => ({
+        studentId: s.student?.id || '',
+        studentName: s.student?.user?.name || 'Unknown',
+        score: s.score || 0,
+        strongAreas: [] // Will be populated by analytics service
+      })),
+    };
+  }, [assessment, analyticsData, totalSubmissions, gradedSubmissions, assessmentId]);
+
+  // Real results data from submissions
+  const realResults = assessment.submissions?.map((sub) => {
+    const score = sub.score || 0;
+    const maxScore = assessment.maxScore || 100;
+    const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
+
+    // Calculate letter grade
+    const getLetterGrade = (percentage: number) => {
+      if (percentage >= 90) return 'A';
+      if (percentage >= 80) return 'B';
+      if (percentage >= 70) return 'C';
+      if (percentage >= 60) return 'D';
+      return 'F';
+    };
+
+    return {
+      studentId: sub.student?.id || '',
+      studentName: sub.student?.user?.name || 'Unknown Student',
+      studentEmail: sub.student?.user?.email || '',
+      score,
+      percentage,
+      grade: getLetterGrade(percentage),
+      submittedAt: sub.submittedAt || sub.createdAt,
+      timeSpent: sub.timeSpentMinutes || 0,
+      bloomsLevelScores: sub.bloomsLevelScores ? JSON.parse(sub.bloomsLevelScores as string) : {},
+      topicMasteryChanges: sub.topicMasteryChanges ? JSON.parse(sub.topicMasteryChanges as string) : [],
+      learningOutcomeAchievements: sub.learningOutcomeAchievements ? JSON.parse(sub.learningOutcomeAchievements as string) : [],
+    };
+  }) || [];
+
+  // CONDITIONAL RETURNS AFTER ALL HOOKS
   if (isLoadingAssessment) {
     return (
       <div className="container mx-auto p-4">
@@ -94,9 +264,6 @@ export default function AssessmentDetailPage() {
       </div>
     );
   }
-
-  // Cast the assessment data to our interface to fix TypeScript errors
-  const assessment = assessmentData as unknown as AssessmentWithDetails;
 
   if (!assessment) {
     return (
@@ -114,75 +281,6 @@ export default function AssessmentDetailPage() {
       </div>
     );
   }
-
-  // Calculate submission stats
-  const totalSubmissions = assessment.submissions?.length || 0;
-  const gradedSubmissions = assessment.submissions?.filter(
-    (sub) => sub.status === SubmissionStatus.GRADED
-  ).length || 0;
-  const pendingSubmissions = totalSubmissions - gradedSubmissions;
-
-  // Mock analytics data (replace with real API calls)
-  const mockAnalytics = {
-    totalSubmissions,
-    gradedSubmissions,
-    averageScore: 78.5,
-    passingRate: 0.82,
-    completionRate: 0.95,
-    averageTimeSpent: 45,
-    bloomsDistribution: {
-      [BloomsTaxonomyLevel.REMEMBER]: { averageScore: 85, maxScore: 100, percentage: 85, studentCount: totalSubmissions },
-      [BloomsTaxonomyLevel.UNDERSTAND]: { averageScore: 80, maxScore: 100, percentage: 80, studentCount: totalSubmissions },
-      [BloomsTaxonomyLevel.APPLY]: { averageScore: 75, maxScore: 100, percentage: 75, studentCount: totalSubmissions },
-      [BloomsTaxonomyLevel.ANALYZE]: { averageScore: 70, maxScore: 100, percentage: 70, studentCount: totalSubmissions },
-      [BloomsTaxonomyLevel.EVALUATE]: { averageScore: 65, maxScore: 100, percentage: 65, studentCount: totalSubmissions },
-      [BloomsTaxonomyLevel.CREATE]: { averageScore: 60, maxScore: 100, percentage: 60, studentCount: totalSubmissions },
-    },
-    topicMasteryImpact: [
-      { topicId: '1', topicName: 'Introduction to Concepts', averageImpact: 12.5, studentsAffected: 25 },
-      { topicId: '2', topicName: 'Advanced Applications', averageImpact: 8.3, studentsAffected: 22 },
-    ],
-    learningOutcomeAchievement: [
-      { outcomeId: '1', outcomeStatement: 'Students will be able to identify key concepts', achievementRate: 0.85, averageScore: 85 },
-      { outcomeId: '2', outcomeStatement: 'Students will be able to apply knowledge in new contexts', achievementRate: 0.72, averageScore: 72 },
-    ],
-    performanceDistribution: [
-      { range: '90-100%', count: 8, percentage: 32 },
-      { range: '80-89%', count: 10, percentage: 40 },
-      { range: '70-79%', count: 5, percentage: 20 },
-      { range: '60-69%', count: 2, percentage: 8 },
-      { range: 'Below 60%', count: 0, percentage: 0 },
-    ],
-    strugglingStudents: [
-      { studentId: '1', studentName: 'John Doe', score: 58, weakAreas: [BloomsTaxonomyLevel.ANALYZE, BloomsTaxonomyLevel.EVALUATE] },
-    ],
-    topPerformers: [
-      { studentId: '2', studentName: 'Jane Smith', score: 95, strongAreas: [BloomsTaxonomyLevel.CREATE, BloomsTaxonomyLevel.EVALUATE] },
-      { studentId: '3', studentName: 'Bob Johnson', score: 92, strongAreas: [BloomsTaxonomyLevel.APPLY, BloomsTaxonomyLevel.ANALYZE] },
-    ],
-  };
-
-  // Mock results data
-  const mockResults = assessment.submissions?.map((sub, index) => ({
-    studentId: sub.student?.id || `student-${index}`,
-    studentName: sub.student?.user?.name || `Student ${index + 1}`,
-    studentEmail: sub.student?.user?.email || `student${index + 1}@example.com`,
-    score: sub.score || Math.floor(Math.random() * 40) + 60,
-    percentage: sub.score ? (sub.score / (assessment.maxScore || 100)) * 100 : Math.floor(Math.random() * 40) + 60,
-    grade: sub.score && sub.score >= 90 ? 'A' : sub.score && sub.score >= 80 ? 'B' : sub.score && sub.score >= 70 ? 'C' : sub.score && sub.score >= 60 ? 'D' : 'F',
-    submittedAt: sub.submittedAt || new Date(),
-    timeSpent: Math.floor(Math.random() * 30) + 30,
-    bloomsLevelScores: {
-      [BloomsTaxonomyLevel.REMEMBER]: Math.floor(Math.random() * 20) + 80,
-      [BloomsTaxonomyLevel.UNDERSTAND]: Math.floor(Math.random() * 20) + 75,
-      [BloomsTaxonomyLevel.APPLY]: Math.floor(Math.random() * 20) + 70,
-      [BloomsTaxonomyLevel.ANALYZE]: Math.floor(Math.random() * 20) + 65,
-      [BloomsTaxonomyLevel.EVALUATE]: Math.floor(Math.random() * 20) + 60,
-      [BloomsTaxonomyLevel.CREATE]: Math.floor(Math.random() * 20) + 55,
-    },
-    topicMasteryChanges: [],
-    learningOutcomeAchievements: [],
-  })) || [];
 
   const mockBloomsDistribution = {
     [BloomsTaxonomyLevel.REMEMBER]: 85,
@@ -253,6 +351,9 @@ export default function AssessmentDetailPage() {
           <TabsTrigger value="submissions">Submissions</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="results">Results Dashboard</TabsTrigger>
+          {assessment.bloomsRubric && (
+            <TabsTrigger value="rubric">Rubric</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="overview" className="mt-6">
@@ -400,7 +501,7 @@ export default function AssessmentDetailPage() {
             assessmentTitle={assessment.title}
             maxScore={assessment.maxScore || 100}
             passingScore={assessment.passingScore || 60}
-            analytics={mockAnalytics}
+            analytics={realAnalytics}
             onRefresh={() => {
               // Refresh analytics data
               console.log('Refreshing analytics...');
@@ -414,7 +515,7 @@ export default function AssessmentDetailPage() {
             assessmentTitle={assessment.title}
             maxScore={assessment.maxScore || 100}
             passingScore={assessment.passingScore || 60}
-            results={mockResults}
+            results={realResults || []}
             bloomsDistribution={mockBloomsDistribution}
             onExportResults={() => {
               // Export results functionality
@@ -426,6 +527,122 @@ export default function AssessmentDetailPage() {
             }}
           />
         </TabsContent>
+
+        {/* Rubric Tab */}
+        {assessment.bloomsRubric && (
+          <TabsContent value="rubric" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Assessment Rubric</CardTitle>
+                <CardDescription>
+                  Detailed grading criteria and performance levels for this assessment
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Rubric Header */}
+                  <div className="border-b pb-4">
+                    <h3 className="text-lg font-semibold">{assessment.bloomsRubric.title}</h3>
+                    {assessment.bloomsRubric.description && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {assessment.bloomsRubric.description}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                      <span>Max Score: {assessment.bloomsRubric.maxScore}</span>
+                      <span>Type: {assessment.bloomsRubric.type}</span>
+                      <span>Criteria: {assessment.bloomsRubric.criteria?.length || 0}</span>
+                    </div>
+                  </div>
+
+                  {/* Performance Levels */}
+                  {assessment.bloomsRubric.performanceLevels && assessment.bloomsRubric.performanceLevels.length > 0 && (
+                    <div>
+                      <h4 className="font-medium mb-3">Performance Levels</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {assessment.bloomsRubric.performanceLevels.map((level) => (
+                          <div key={level.id} className="border rounded-lg p-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: level.color || '#3b82f6' }}
+                              />
+                              <span className="font-medium">{level.name}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {level.minScore} - {level.maxScore} points
+                            </p>
+                            {level.description && (
+                              <p className="text-sm mt-2">{level.description}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Criteria */}
+                  {assessment.bloomsRubric.criteria && assessment.bloomsRubric.criteria.length > 0 && (
+                    <div>
+                      <h4 className="font-medium mb-3">Grading Criteria</h4>
+                      <div className="space-y-4">
+                        {assessment.bloomsRubric.criteria.map((criterion) => (
+                          <div key={criterion.id} className="border rounded-lg p-4">
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h5 className="font-medium">{criterion.name}</h5>
+                                {criterion.description && (
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    {criterion.description}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline">
+                                  {criterion.bloomsLevel}
+                                </Badge>
+                                <span className="text-sm text-muted-foreground">
+                                  Weight: {criterion.weight}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Criterion Performance Levels */}
+                            {criterion.criteriaLevels && criterion.criteriaLevels.length > 0 && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                                {criterion.criteriaLevels.map((criteriaLevel) => (
+                                  <div key={criteriaLevel.id} className="bg-muted/50 rounded p-2">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <div
+                                        className="w-2 h-2 rounded-full"
+                                        style={{ backgroundColor: criteriaLevel.performanceLevel?.color || '#3b82f6' }}
+                                      />
+                                      <span className="text-sm font-medium">
+                                        {criteriaLevel.performanceLevel?.name}
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      {criteriaLevel.performanceLevel?.minScore} - {criteriaLevel.performanceLevel?.maxScore} pts
+                                    </p>
+                                    {criteriaLevel.performanceLevel?.description && (
+                                      <p className="text-xs mt-1">
+                                        {criteriaLevel.performanceLevel.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

@@ -690,7 +690,7 @@ export const teacherRouter = createTRPCRouter({
     .input(z.object({
       classId: z.string(),
       subjectId: z.string().optional(),
-      limit: z.number().min(1).max(100).optional().default(50),
+      limit: z.number().min(1).max(50).optional().default(20),
       cursor: z.string().optional(), // For cursor-based pagination
     }))
     .query(async ({ ctx, input }) => {
@@ -719,7 +719,7 @@ export const teacherRouter = createTRPCRouter({
           activityWhere.subjectId = input.subjectId;
         }
 
-        // Get all activities for this class
+        // Get activities with minimal data for performance
         const activities = await ctx.prisma.activity.findMany({
           where: activityWhere,
           take: input.limit + 1, // Take one more to check if there are more results
@@ -729,7 +729,21 @@ export const teacherRouter = createTRPCRouter({
             },
             skip: 1, // Skip the cursor
           }),
-          include: {
+          select: {
+            id: true,
+            title: true,
+
+            content: true,
+            learningType: true,
+            purpose: true,
+            bloomsLevel: true,
+            isGradable: true,
+            maxScore: true,
+            startDate: true,
+            endDate: true,
+            createdAt: true,
+            updatedAt: true,
+            status: true,
             subject: {
               select: {
                 id: true,
@@ -743,63 +757,41 @@ export const teacherRouter = createTRPCRouter({
                 title: true
               }
             },
-            // Include activity grades to get analytics and attempts
-            activityGrades: {
-              include: {
-                student: {
-                  include: {
-                    user: {
-                      select: {
-                        name: true,
-                        email: true
-                      }
-                    }
-                  }
-                }
+            // Only get counts for performance - no deep nested data
+            _count: {
+              select: {
+                activityGrades: true,
+                learningTimeRecords: true
               }
-            },
-            // Include learning time records
-            learningTimeRecords: true
+            }
           },
           orderBy: {
             createdAt: 'desc'
           }
         });
 
-        // Process activities to include analytics and learning time data
+        // Process activities with lightweight analytics using counts only
         const processedActivities = activities.map(activity => {
-          // Calculate analytics
-          const totalSubmissions = activity.activityGrades.length;
-          const gradedSubmissions = activity.activityGrades.filter(grade =>
-            grade.status === 'GRADED'
-          ).length;
-          const averageScore = activity.activityGrades.length > 0
-            ? activity.activityGrades.reduce((sum, grade) => sum + (grade.score || 0), 0) / totalSubmissions
-            : 0;
+          // Use counts instead of loading all related data
+          const totalSubmissions = activity._count?.activityGrades || 0;
+          const totalLearningTimeRecords = activity._count?.learningTimeRecords || 0;
 
-          // Calculate total learning time from both direct records and activity grades
-          const totalLearningTime = activity.learningTimeRecords.reduce(
-            (sum, record) => sum + record.timeSpentMinutes,
-            0
-          ) + activity.activityGrades.reduce(
-            (sum, grade) => sum + (grade.timeSpentMinutes || 0),
-            0
-          );
-
-          // Determine if activity requires manual grading
+          // Determine if activity requires manual grading from content
           const content = activity.content as Record<string, any> || {};
           const requiresManualGrading = content.requiresTeacherReview === true ||
             (content.hasSubmission === true && content.hasRealTimeComponents !== true);
 
-          // Return processed activity with analytics
+          // Return processed activity with lightweight analytics
           return {
             ...activity,
             analytics: {
               totalSubmissions,
-              gradedSubmissions,
-              averageScore,
-              totalLearningTime,
-              requiresManualGrading
+              totalLearningTimeRecords,
+              requiresManualGrading,
+              // These will be loaded separately when needed for detailed views
+              gradedSubmissions: 0, // Placeholder - load when needed
+              averageScore: 0, // Placeholder - load when needed
+              totalLearningTime: 0 // Placeholder - load when needed
             }
           };
         });

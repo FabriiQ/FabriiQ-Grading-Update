@@ -161,7 +161,7 @@ export default function StudentPerformancePage() {
               <div>
                 <p className="text-sm font-medium">Overall Progress</p>
                 <p className="text-xs text-muted-foreground">
-                  {analytics?.overallPerformance ? `${Math.round(analytics.overallPerformance * 100)}%` : 'N/A'}
+                  {analytics?.performancePatterns?.consistencyScore ? `${Math.round(analytics.performancePatterns.consistencyScore)}%` : 'N/A'}
                 </p>
               </div>
             </div>
@@ -173,9 +173,9 @@ export default function StudentPerformancePage() {
             <div className="flex items-center space-x-2">
               <BarChart3 className="h-4 w-4 text-blue-500" />
               <div>
-                <p className="text-sm font-medium">Mastery Level</p>
+                <p className="text-sm font-medium">Learning Confidence</p>
                 <p className="text-xs text-muted-foreground">
-                  {analytics?.averageScore ? `${Math.round(analytics.averageScore)}%` : 'N/A'}
+                  {analytics?.learningStyle?.confidence ? `${Math.round(analytics.learningStyle.confidence * 100)}%` : 'N/A'}
                 </p>
               </div>
             </div>
@@ -187,9 +187,9 @@ export default function StudentPerformancePage() {
             <div className="flex items-center space-x-2">
               <Target className="h-4 w-4 text-purple-500" />
               <div>
-                <p className="text-sm font-medium">Activities Completed</p>
+                <p className="text-sm font-medium">Learning Style</p>
                 <p className="text-xs text-muted-foreground">
-                  {analytics?.totalActivities || 0}
+                  {analytics?.learningStyle?.primary ? analytics.learningStyle.primary.replace('_', ' ').toUpperCase() : 'N/A'}
                 </p>
               </div>
             </div>
@@ -201,9 +201,11 @@ export default function StudentPerformancePage() {
             <div className="flex items-center space-x-2">
               <Clock className="h-4 w-4 text-orange-500" />
               <div>
-                <p className="text-sm font-medium">Study Time</p>
+                <p className="text-sm font-medium">Improvement Trend</p>
                 <p className="text-xs text-muted-foreground">
-                  {analytics?.averageTimeSpent ? `${Math.round(analytics.averageTimeSpent / 60)}h` : 'N/A'}
+                  {analytics?.performancePatterns?.improvementTrend ?
+                    analytics.performancePatterns.improvementTrend.charAt(0).toUpperCase() +
+                    analytics.performancePatterns.improvementTrend.slice(1) : 'N/A'}
                 </p>
               </div>
             </div>

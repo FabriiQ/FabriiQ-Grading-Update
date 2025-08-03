@@ -24,9 +24,9 @@ export default function ClassAnalyticsPage() {
     { enabled: !!classId }
   );
 
-  // Get teacher ID
-  const { data: teacher, isLoading: isLoadingTeacher } = api.teacher.getTeacherById.useQuery(
-    { id: session?.user?.id || '' },
+  // Get current teacher profile
+  const { data: teacher, isLoading: isLoadingTeacher } = api.teacher.getCurrentTeacher.useQuery(
+    undefined,
     { enabled: !!session?.user?.id }
   );
   

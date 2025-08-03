@@ -858,6 +858,13 @@ model AssessmentSubmission {
   submittedAt    DateTime?
   gradedAt       DateTime?
   gradedById     String?
+
+  // Enhanced fields for analytics and tracking
+  timeSpentMinutes      Int?
+  bloomsLevelScores     Json?
+  topicMasteryChanges   Json?
+  learningOutcomeAchievements Json?
+
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   assessment     Assessment       @relation(fields: [assessmentId], references: [id])

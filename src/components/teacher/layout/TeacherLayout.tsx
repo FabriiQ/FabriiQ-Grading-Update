@@ -109,6 +109,9 @@ export function TeacherLayout({
           />
         )}
 
+        {/* Mobile bottom navigation */}
+        {isMobile && <TeacherBottomNav />}
+
         {/* Teacher Assistant Components */}
         <TeacherAssistantComponents />
       </div>

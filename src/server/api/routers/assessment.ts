@@ -376,9 +376,8 @@ export const assessmentRouter = createTRPCRouter({
             enhancedSettings: input.enhancedSettings,
             questionBankRefs: input.questionBankRefs,
 
-            // Legacy support
+            // Legacy support - questions only, no JSON rubric
             questions: input.questions,
-            rubric: input.rubricId ? { rubricId: input.rubricId } : undefined,
           }, ctx.session.user.id);
         } else {
           // Use legacy assessment service for backward compatibility
@@ -400,8 +399,7 @@ export const assessmentRouter = createTRPCRouter({
             instructions: input.instructions,
             rubricId: input.rubricId,
             bloomsDistribution: input.bloomsDistribution,
-            // Store questions as rubric for legacy support
-            rubric: input.questions ? { questions: input.questions } : undefined,
+            // Remove JSON rubric storage - use only rubricId
             status: input.status ?? SystemStatus.ACTIVE
           });
         }
@@ -564,6 +562,7 @@ export const assessmentRouter = createTRPCRouter({
       assessmentId: z.string().optional(),
       includeQuestions: z.boolean().optional(),
       includeSubmissions: z.boolean().optional(),
+      includeRubric: z.boolean().optional(),
     }).refine(data => data.id || data.assessmentId, {
       message: "Either id or assessmentId must be provided",
       path: ["id"]
@@ -584,10 +583,14 @@ export const assessmentRouter = createTRPCRouter({
         logger.debug("Fetching assessment by ID", {
           assessmentId,
           includeQuestions: input.includeQuestions,
-          includeSubmissions: input.includeSubmissions
+          includeSubmissions: input.includeSubmissions,
+          includeRubric: input.includeRubric
         });
 
-        return service.getAssessment(assessmentId);
+        return service.getAssessment(assessmentId, {
+          includeSubmissions: input.includeSubmissions,
+          includeRubric: input.includeRubric
+        });
       } catch (error) {
         logger.error("Error fetching assessment by ID", {
           error,
@@ -661,11 +664,11 @@ export const assessmentRouter = createTRPCRouter({
         });
       }
 
-      // Parse rubric to get questions
-      const assessmentData = assessment.rubric ?
-        (typeof assessment.rubric === 'string'
-          ? JSON.parse(assessment.rubric as string)
-          : assessment.rubric) : {};
+      // Get questions from content field instead of rubric JSON
+      const assessmentData = assessment.content ?
+        (typeof assessment.content === 'string'
+          ? JSON.parse(assessment.content as string)
+          : assessment.content) : {};
 
       const questions = assessmentData.questions || [];
 
@@ -1493,6 +1496,100 @@ export const assessmentRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to get class assessments"
+        });
+      }
+    }),
+
+  // Get assessment analytics
+  getAnalytics: protectedProcedure
+    .input(z.object({
+      assessmentId: z.string(),
+    }))
+    .query(async ({ ctx, input }) => {
+      try {
+        // Get assessment with submissions
+        const assessment = await ctx.prisma.assessment.findUnique({
+          where: { id: input.assessmentId },
+          include: {
+            submissions: {
+              include: {
+                student: {
+                  include: {
+                    user: {
+                      select: {
+                        name: true,
+                        email: true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        if (!assessment) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Assessment not found'
+          });
+        }
+
+        const submissions = assessment.submissions;
+        const gradedSubmissions = submissions.filter(s => s.status === 'GRADED' && s.score !== null);
+
+        // Calculate analytics
+        const totalScore = gradedSubmissions.reduce((sum, s) => sum + (s.score || 0), 0);
+        const averageScore = gradedSubmissions.length > 0 ? totalScore / gradedSubmissions.length : 0;
+        const passingScore = assessment.passingScore || 60;
+        const passingStudents = gradedSubmissions.filter(s => (s.score || 0) >= passingScore).length;
+        const passingRate = gradedSubmissions.length > 0 ? passingStudents / gradedSubmissions.length : 0;
+        const completionRate = submissions.length > 0 ? submissions.filter(s => s.status !== 'PENDING').length / submissions.length : 0;
+
+        return {
+          totalSubmissions: submissions.length,
+          gradedSubmissions: gradedSubmissions.length,
+          averageScore,
+          passingRate,
+          completionRate,
+          averageTimeSpent: 0, // Will be calculated when timeSpent field is available
+          bloomsDistribution: {
+            REMEMBER: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+            UNDERSTAND: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+            APPLY: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+            ANALYZE: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+            EVALUATE: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+            CREATE: { averageScore: 0, maxScore: 100, percentage: 0, studentCount: 0 },
+          },
+          topicMasteryImpact: [],
+          learningOutcomeAchievement: [],
+          performanceDistribution: [
+            { range: '90-100%', count: gradedSubmissions.filter(s => (s.score || 0) >= 90).length, percentage: 0 },
+            { range: '80-89%', count: gradedSubmissions.filter(s => (s.score || 0) >= 80 && (s.score || 0) < 90).length, percentage: 0 },
+            { range: '70-79%', count: gradedSubmissions.filter(s => (s.score || 0) >= 70 && (s.score || 0) < 80).length, percentage: 0 },
+            { range: '60-69%', count: gradedSubmissions.filter(s => (s.score || 0) >= 60 && (s.score || 0) < 70).length, percentage: 0 },
+            { range: 'Below 60%', count: gradedSubmissions.filter(s => (s.score || 0) < 60).length, percentage: 0 },
+          ].map(dist => ({
+            ...dist,
+            percentage: gradedSubmissions.length > 0 ? Math.round((dist.count / gradedSubmissions.length) * 100) : 0
+          })),
+          strugglingStudents: gradedSubmissions.filter(s => (s.score || 0) < 60).map(s => ({
+            studentId: s.student?.id || '',
+            studentName: s.student?.user?.name || 'Unknown',
+            score: s.score || 0,
+            weakAreas: [] // Will be populated by analytics service
+          })),
+          topPerformers: gradedSubmissions.filter(s => (s.score || 0) >= 90).map(s => ({
+            studentId: s.student?.id || '',
+            studentName: s.student?.user?.name || 'Unknown',
+            score: s.score || 0,
+            strongAreas: [] // Will be populated by analytics service
+          })),
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to get assessment analytics: ${(error as Error).message}`
         });
       }
     }),

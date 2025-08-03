@@ -379,34 +379,58 @@ export const rubricRouter = createTRPCRouter({
     }),
 
   /**
-   * Get reusable criteria from topics and learning outcomes
+   * Get reusable criteria from topics and learning outcomes with search
    */
   getReusableCriteria: protectedProcedure
     .input(z.object({
       topicId: z.string().optional(),
-      learningOutcomeIds: z.array(z.string()).optional()
+      learningOutcomeIds: z.array(z.string()).optional(),
+      search: z.string().optional(),
+      bloomsLevel: BloomsTaxonomyLevelEnum.optional(),
+      limit: z.number().min(1).max(100).default(50)
     }))
     .query(async ({ ctx, input }) => {
       try {
-        const { topicId, learningOutcomeIds = [] } = input;
+        const { topicId, learningOutcomeIds = [], search, bloomsLevel, limit } = input;
 
         // Build where conditions
-        const whereConditions: any[] = [];
+        const whereConditions: any = {
+          status: 'ACTIVE'
+        };
 
+        // Add topic/learning outcome filters
+        const relationFilters: any[] = [];
         if (topicId) {
-          whereConditions.push({ topicId });
+          relationFilters.push({ topicId });
+        }
+        if (learningOutcomeIds.length > 0) {
+          relationFilters.push({ learningOutcomeId: { in: learningOutcomeIds } });
+        }
+        if (relationFilters.length > 0) {
+          whereConditions.OR = relationFilters;
         }
 
-        if (learningOutcomeIds.length > 0) {
-          whereConditions.push({ learningOutcomeId: { in: learningOutcomeIds } });
+        // Add search filter
+        if (search) {
+          whereConditions.AND = [
+            ...(whereConditions.AND || []),
+            {
+              OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } }
+              ]
+            }
+          ];
+        }
+
+        // Add Bloom's level filter
+        if (bloomsLevel) {
+          whereConditions.bloomsLevel = bloomsLevel;
         }
 
         // Get existing criteria that can be reused
         const reusableCriteria = await ctx.prisma.rubricCriteria.findMany({
-          where: {
-            ...(whereConditions.length > 0 ? { OR: whereConditions } : {}),
-            status: 'ACTIVE'
-          },
+          where: whereConditions,
           include: {
             rubric: {
               select: {
@@ -422,7 +446,8 @@ export const rubricRouter = createTRPCRouter({
           },
           orderBy: [
             { createdAt: 'desc' }
-          ]
+          ],
+          take: limit
         });
 
         return {

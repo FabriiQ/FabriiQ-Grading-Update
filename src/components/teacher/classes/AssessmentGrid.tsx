@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/trpc/react';
 import { useResponsive } from '@/lib/hooks/use-responsive';
@@ -31,6 +31,7 @@ import {
   Filter,
   ClipboardList,
   BarChart,
+  Settings,
   AlertCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -46,6 +47,7 @@ import {
 import { useSession } from 'next-auth/react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/feedback/alert';
 import { EnhancedAssessmentDialog } from '@/features/assessments/components/creation/EnhancedAssessmentDialog';
+import { UnifiedAssessmentCreator } from '@/components/teacher/assessments/UnifiedAssessmentCreator';
 
 interface AssessmentGridProps {
   classId: string;
@@ -62,7 +64,7 @@ interface AssessmentGridProps {
  * - Assessment type filtering
  * - Status tabs (All, Upcoming, Completed, Grading)
  */
-export function AssessmentGrid({ classId, className }: AssessmentGridProps) {
+function AssessmentGridComponent({ classId, className }: AssessmentGridProps) {
   const router = useRouter();
   const { isMobile } = useResponsive();
   const { data: session, status: sessionStatus } = useSession();
@@ -77,16 +79,20 @@ export function AssessmentGrid({ classId, className }: AssessmentGridProps) {
   const [assessmentToDelete, setAssessmentToDelete] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [enhancedDialogOpen, setEnhancedDialogOpen] = useState(false);
+  const [unifiedDialogOpen, setUnifiedDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [assessmentToEdit, setAssessmentToEdit] = useState<string | null>(null);
 
-  // Fetch assessments for this class
+  // Fetch assessments for this class with performance optimizations
   const { data: assessments, isLoading, error, refetch } = api.teacher.getClassAssessments.useQuery(
     { classId },
     {
       refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
       retry: 3,
       retryDelay: 1000,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      cacheTime: 15 * 60 * 1000, // 15 minutes
       enabled: sessionStatus === 'authenticated' && !!session?.user?.id,
       onSuccess: (data) => {
         console.log('Successfully fetched assessments:', {
@@ -114,58 +120,60 @@ export function AssessmentGrid({ classId, className }: AssessmentGridProps) {
     },
   });
 
-  // Handle assessment deletion
-  const handleDeleteAssessment = (id: string) => {
+  // Handle assessment deletion - memoized for performance
+  const handleDeleteAssessment = useCallback((id: string) => {
     setAssessmentToDelete(id);
     setDeleteDialogOpen(true);
-  };
+  }, []);
 
-  const confirmDeleteAssessment = () => {
+  const confirmDeleteAssessment = useCallback(() => {
     if (assessmentToDelete) {
       deleteAssessment.mutate({ assessmentId: assessmentToDelete });
     }
-  };
+  }, [assessmentToDelete, deleteAssessment]);
 
-  // Filter assessments based on all filters
-  const filteredAssessments = assessments
-    ? assessments.filter(assessment => {
-        // Filter by search query
-        const matchesSearch =
-          assessment.title.toLowerCase().includes(searchQuery.toLowerCase());
+  // Filter assessments based on all filters - memoized for performance
+  const filteredAssessments = useMemo(() => {
+    if (!assessments) return [];
 
-        // Filter by status tab
-        const matchesStatus = (() => {
-          if (activeTab === 'all') return true;
-          if (activeTab === 'upcoming') return assessment.status === 'published';
-          return assessment.status === activeTab;
-        })();
+    return assessments.filter(assessment => {
+      // Filter by search query
+      const matchesSearch =
+        assessment.title.toLowerCase().includes(searchQuery.toLowerCase());
 
-        // Filter by assessment type
-        const matchesType =
-          assessmentType === 'all' ||
-          assessment.assessmentType.toLowerCase() === assessmentType.toLowerCase();
+      // Filter by status tab
+      const matchesStatus = (() => {
+        if (activeTab === 'all') return true;
+        if (activeTab === 'upcoming') return assessment.status === 'published';
+        return assessment.status === activeTab;
+      })();
 
-        // Filter by date range
-        const matchesDateRange = !dateRange || !dateRange.from || !assessment.dueDate
-          ? true
-          : (() => {
-              const assessmentDate = new Date(assessment.dueDate);
-              const from = new Date(dateRange.from);
-              from.setHours(0, 0, 0, 0);
+      // Filter by assessment type
+      const matchesType =
+        assessmentType === 'all' ||
+        assessment.assessmentType.toLowerCase() === assessmentType.toLowerCase();
 
-              if (!dateRange.to) {
-                return assessmentDate >= from;
-              }
+      // Filter by date range
+      const matchesDateRange = !dateRange || !dateRange.from || !assessment.dueDate
+        ? true
+        : (() => {
+            const assessmentDate = new Date(assessment.dueDate);
+            const from = new Date(dateRange.from);
+            from.setHours(0, 0, 0, 0);
 
-              const to = new Date(dateRange.to);
-              to.setHours(23, 59, 59, 999);
+            if (!dateRange.to) {
+              return assessmentDate >= from;
+            }
 
-              return assessmentDate >= from && assessmentDate <= to;
-            })();
+            const to = new Date(dateRange.to);
+            to.setHours(23, 59, 59, 999);
 
-        return matchesSearch && matchesStatus && matchesType && matchesDateRange;
-      })
-    : [];
+            return assessmentDate >= from && assessmentDate <= to;
+          })();
+
+      return matchesSearch && matchesStatus && matchesType && matchesDateRange;
+    });
+  }, [assessments, searchQuery, activeTab, assessmentType, dateRange]);
 
   // Get unique assessment types
   const assessmentTypes = assessments
@@ -197,6 +205,12 @@ export function AssessmentGrid({ classId, className }: AssessmentGridProps) {
 
   const handleEnhancedAssessmentCreated = (assessmentId: string) => {
     setEnhancedDialogOpen(false);
+    refetch(); // Refresh the assessments list
+    // Stay on the assessments page to show the new assessment
+  };
+
+  const handleUnifiedAssessmentCreated = (assessmentId: string) => {
+    setUnifiedDialogOpen(false);
     refetch(); // Refresh the assessments list
     // Stay on the assessments page to show the new assessment
   };
@@ -265,6 +279,16 @@ export function AssessmentGrid({ classId, className }: AssessmentGridProps) {
           >
             <BarChart className="mr-2 h-4 w-4" />
             Enhanced Creator
+          </Button>
+
+          <Button
+            variant="outline"
+            className="hidden sm:flex"
+            onClick={() => setUnifiedDialogOpen(true)}
+            disabled={sessionStatus !== 'authenticated'}
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            Unified Creator
           </Button>
 
           <Button
@@ -438,6 +462,13 @@ export function AssessmentGrid({ classId, className }: AssessmentGridProps) {
                 <BarChart className="mr-2 h-4 w-4" />
                 Enhanced Creator
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => setUnifiedDialogOpen(true)}
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                Unified Creator
+              </Button>
               <Button onClick={() => router.push(`/teacher/classes/${classId}/assessments/new`)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Create Assessment
@@ -519,6 +550,27 @@ export function AssessmentGrid({ classId, className }: AssessmentGridProps) {
           assessmentId={assessmentToEdit}
         />
       )}
+
+      {/* Unified Assessment Creator Dialog */}
+      <Dialog open={unifiedDialogOpen} onOpenChange={setUnifiedDialogOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Unified Assessment Creator</DialogTitle>
+            <DialogDescription>
+              Create a comprehensive assessment using our unified creator
+            </DialogDescription>
+          </DialogHeader>
+          <UnifiedAssessmentCreator
+            classId={classId}
+            mode="create"
+            onSuccess={handleUnifiedAssessmentCreated}
+            onCancel={() => setUnifiedDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+// Export memoized component for performance optimization
+export const AssessmentGrid = React.memo(AssessmentGridComponent);

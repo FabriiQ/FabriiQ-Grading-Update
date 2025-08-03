@@ -43,9 +43,10 @@ export function AssessmentGrading({
   const [activeTab, setActiveTab] = useState<string>('submission');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch assessment data
+  // Fetch assessment data with rubric
   const { data: assessment, isLoading: assessmentLoading } = api.assessment.getById.useQuery({
-    assessmentId
+    assessmentId,
+    includeRubric: true
   });
 
   // Fetch submission data
@@ -53,9 +54,14 @@ export function AssessmentGrading({
     id: submissionId,
   });
 
-  // Get rubric from assessment data (no separate API call needed)
-  const rubric = assessment?.bloomsRubric;
-  const rubricLoading = false; // Since rubric is included in assessment query
+  // Fetch rubric separately if assessment has a rubricId
+  const { data: rubric, isLoading: rubricLoading } = api.rubric.getById.useQuery(
+    { id: assessment?.rubricId || '' },
+    {
+      enabled: !!assessment?.rubricId,
+      staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    }
+  );
 
   // Fetch student data
   const { data: student, isLoading: studentLoading } = api.user.getById.useQuery(
@@ -306,7 +312,9 @@ export function AssessmentGrading({
       rubricPerformanceLevels: rubric?.performanceLevels?.length || 0,
       hasRubric,
       gradingMethod,
-      gradingType: assessment.gradingType
+      gradingType: assessment.gradingType,
+      // Ensure we're using the assessment's specific rubric, not a fallback
+      usingSpecificRubric: !!assessment.rubricId
     });
 
     // Prepare rubric data if available
@@ -336,16 +344,7 @@ export function AssessmentGrading({
         onGradeSubmit={handleEnhancedGrading}
         readOnly={isGraded}
         showTopicMasteryImpact={true}
-        topicMasteryData={[
-          // Mock data - replace with real API call
-          {
-            topicId: '1',
-            topicName: 'Sample Topic',
-            currentMastery: 75,
-            projectedMastery: 82,
-            impact: 7,
-          },
-        ]}
+        topicMasteryData={[]} // Real data will be fetched by the component
       />
     );
   };

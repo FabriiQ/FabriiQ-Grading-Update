@@ -31,9 +31,15 @@ export default function BloomReportsPage({ params }: BloomReportsPageProps) {
     return null;
   }
 
-  // Get class data
+  // Get class data with optimized query options
   const { data: classData, isLoading: isLoadingClass } = api.teacher.getClassById.useQuery({
     classId
+  }, {
+    // Prevent unnecessary refetches
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    cacheTime: 30 * 60 * 1000, // 30 minutes
   });
 
   // Show loading state

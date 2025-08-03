@@ -98,6 +98,7 @@ export function RubricSelector({
 }: RubricSelectorProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [createRubricOpen, setCreateRubricOpen] = useState(false);
+  const [criteriaSearch, setCriteriaSearch] = useState('');
 
   // State for comprehensive rubric creation
   const [rubricTitle, setRubricTitle] = useState('');
@@ -109,25 +110,37 @@ export function RubricSelector({
   const [performanceLevels, setPerformanceLevels] = useState<LearningOutcomePerformanceLevel[]>([]);
   const [selectedExistingCriteria, setSelectedExistingCriteria] = useState<string[]>([]);
 
-  // Fetch rubrics for this subject/topic
+  // Fetch rubrics for this subject/topic - optimized with proper conditions
   const { data: rubricCriteria, isLoading: isLoadingRubrics, refetch } = api.rubric.getCriteriaByTopic.useQuery(
     { topicId },
-    { enabled: !!topicId }
+    {
+      enabled: !!topicId && !!subjectId,
+      staleTime: 5 * 60 * 1000, // 5 minutes cache
+      cacheTime: 10 * 60 * 1000, // 10 minutes cache
+    }
   );
 
-  // Fetch reusable criteria from topic and learning outcomes
+  // Fetch reusable criteria with search functionality - optimized
   const { data: reusableCriteriaData } = api.rubric.getReusableCriteria.useQuery(
     {
       topicId,
-      learningOutcomeIds: selectedLearningOutcomes
+      learningOutcomeIds: selectedLearningOutcomes,
+      search: criteriaSearch || undefined,
+      limit: 50
     },
-    { enabled: !!topicId || selectedLearningOutcomes.length > 0 }
+    {
+      enabled: !!topicId || selectedLearningOutcomes.length > 0,
+      staleTime: 5 * 60 * 1000, // 5 minutes cache
+    }
   );
 
-  // Fetch learning outcome details for display
+  // Fetch learning outcome details only when needed - optimized
   const { data: learningOutcomesData } = api.learningOutcome.getByIds.useQuery(
     { ids: selectedLearningOutcomes },
-    { enabled: selectedLearningOutcomes.length > 0 }
+    {
+      enabled: selectedLearningOutcomes.length > 0,
+      staleTime: 5 * 60 * 1000, // 5 minutes cache
+    }
   );
 
   // Create rubric mutation
@@ -184,7 +197,7 @@ export function RubricSelector({
     }, []) : [];
 
   // Show the interface immediately, with loading states for specific sections
-  const showRubricLoading = isLoading || isLoadingRubrics;
+  const showRubricLoading = isLoading || (isLoadingRubrics && !!topicId && !!subjectId);
 
   const handleRubricSelect = (rubricId: string) => {
     // Allow deselection by clicking the same rubric
@@ -205,33 +218,13 @@ export function RubricSelector({
     // TODO: Fix the reusable criteria data structure to match expected types
     const selectedReusableCriteria: any[] = [];
 
-    // Original code commented out due to type mismatch:
-    // const selectedReusableCriteria = reusableCriteriaData?.criteria.filter(c =>
-    //   selectedExistingCriteria.includes(c.id)
-    // ).map(c => ({
-    //   id: c.id,
-    //   name: c.name,
-    //   description: c.description || '',
-    //   bloomsLevel: c.bloomsLevel,
-    //   weight: c.weight,
-    //   topicId: topicId,
-    //   learningOutcomeId: undefined,
-    //   performanceLevels: (c.performanceLevels || []).map(pl => ({
-    //     id: pl.id,
-    //     name: pl.name,
-    //     description: pl.description || '',
-    //     scorePercentage: pl.scorePercentage,
-    //     color: pl.color || '#3b82f6'
-    //   }))
-    // })) || [];
-
     const allCriteria = [
       ...criteria,
       ...selectedReusableCriteria
     ];
 
     try {
-      await createRubricMutation.mutateAsync({
+      const createdRubric = await createRubricMutation.mutateAsync({
         title: rubricTitle,
         description: rubricDescription,
         type: rubricType,
@@ -247,13 +240,20 @@ export function RubricSelector({
           color: pl.color || '#3b82f6' // Default color if not set
         })) : []
       });
+
+      // Select the newly created rubric
+      if (createdRubric?.id) {
+        onSelect(createdRubric.id);
+        setCreateRubricOpen(false);
+        resetRubricForm();
+      }
     } catch (error) {
       console.error('Error creating rubric:', error);
     }
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="text-center mb-6">
         <h3 className="text-lg font-semibold mb-2">Choose Grading Method</h3>
         <p className="text-muted-foreground">
@@ -261,167 +261,39 @@ export function RubricSelector({
         </p>
       </div>
 
-      {/* Controls */}
-      <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <AlertCircle className="h-4 w-4" />
-          <span>Rubrics provide detailed grading criteria and better feedback</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowDetails(!showDetails)}
-          >
-            {showDetails ? <X className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            {showDetails ? 'Hide' : 'Show'} Details
-          </Button>
-        </div>
-      </div>
-
-      {/* No Rubric Option */}
-      <Card
-        className={cn(
-          "cursor-pointer transition-all duration-200 hover:shadow-md border-2 border-dashed",
-          selectedRubricId === ''
-            ? "ring-2 ring-primary border-primary bg-primary/5"
-            : "hover:border-primary/50"
-        )}
-        onClick={() => onSelect('')}
-      >
-        <CardContent className="p-6 text-center">
-          <div className="flex flex-col items-center gap-3">
-            <div className="p-3 rounded-lg bg-muted">
-              <Award className="h-6 w-6" />
-            </div>
-            <div>
-              <h4 className="font-semibold flex items-center gap-2">
-                Use Simple Scoring
-                {selectedRubricId === '' && (
-                  <Check className="h-4 w-4 text-primary" />
-                )}
-              </h4>
-              <p className="text-sm text-muted-foreground mt-1">
-                Grade with a simple score out of maximum points
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Available Rubrics */}
-      {showRubricLoading ? (
-        <div className="space-y-3">
-          <h4 className="font-medium text-sm text-muted-foreground">Loading Rubrics...</h4>
-          {[1, 2].map((i) => (
-            <Card key={i}>
-              <CardHeader className="pb-3">
-                <Skeleton className="h-5 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-2/3" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : rubrics && rubrics.length > 0 ? (
-        <div className="space-y-3">
-          <h4 className="font-medium text-sm text-muted-foreground">Available Rubrics:</h4>
-          {rubrics.map((rubric) => (
-            <Card
-              key={rubric.id}
-              className={cn(
-                "cursor-pointer transition-all duration-200 hover:shadow-md",
-                selectedRubricId === rubric.id
-                  ? "ring-2 ring-primary border-primary bg-primary/5"
-                  : "hover:border-primary/50"
-              )}
-              onClick={() => handleRubricSelect(rubric.id)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      {rubric.name}
-                      {selectedRubricId === rubric.id && (
-                        <Check className="h-4 w-4 text-primary" />
-                      )}
-                    </CardTitle>
-                    {rubric.description && (
-                      <CardDescription className="text-sm mt-1">
-                        {rubric.description}
-                      </CardDescription>
-                    )}
-                  </div>
-                  {rubric.bloomsLevel && (
-                    <Badge
-                      variant="outline"
-                      className={cn("text-xs", BLOOMS_COLORS[rubric.bloomsLevel])}
-                    >
-                      {rubric.bloomsLevel}
-                    </Badge>
+      {/* Main Options Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Simple Scoring Option */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all duration-200 hover:shadow-md border-2",
+            selectedRubricId === ''
+              ? "ring-2 ring-primary border-primary bg-primary/5"
+              : "hover:border-primary/50 border-dashed"
+          )}
+          onClick={() => onSelect('')}
+        >
+          <CardContent className="p-6 text-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="p-4 rounded-full bg-blue-100">
+                <Award className="h-8 w-8 text-blue-600" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-lg flex items-center justify-center gap-2">
+                  Simple Scoring
+                  {selectedRubricId === '' && (
+                    <Check className="h-5 w-5 text-primary" />
                   )}
-                </div>
-              </CardHeader>
+                </h4>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Grade with a simple score out of maximum points. Quick and straightforward.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              <CardContent className="pt-0">
-                <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                  <div className="flex items-center gap-1">
-                    <List className="h-4 w-4" />
-                    <span>{rubric._count?.criteria || 0} criteria</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <BookOpen className="h-4 w-4" />
-                    <span>{rubric._count?.assessments || 0} assessments</span>
-                  </div>
-                </div>
-
-                {showDetails && rubric.criteria && rubric.criteria.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Criteria:</p>
-                    <div className="space-y-1">
-                      {rubric.criteria.slice(0, 3).map((criterion) => (
-                        <div key={criterion.id} className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">{criterion.name}</span>
-                          {criterion.bloomsLevel && (
-                            <Badge
-                              variant="outline"
-                              className={cn("text-xs", BLOOMS_COLORS[criterion.bloomsLevel])}
-                            >
-                              {criterion.bloomsLevel}
-                            </Badge>
-                          )}
-                        </div>
-                      ))}
-                      {rubric.criteria.length > 3 && (
-                        <p className="text-xs text-muted-foreground">
-                          +{rubric.criteria.length - 3} more criteria
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-8">
-          <BookOpen className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-          <h4 className="font-medium mb-2">No Rubrics Available</h4>
-          <p className="text-sm text-muted-foreground">
-            No rubrics are available for this topic. You can create one using the button below or use simple scoring.
-          </p>
-        </div>
-      )}
-
-      {/* Always show Create Rubric Button */}
-      <div className="flex justify-center pt-4 border-t">
+        {/* Create Rubric Option */}
         <Dialog open={createRubricOpen} onOpenChange={(open) => {
           setCreateRubricOpen(open);
           if (!open) {
@@ -429,11 +301,56 @@ export function RubricSelector({
           }
         }}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Create New Rubric
-            </Button>
+            <Card className="cursor-pointer transition-all duration-200 hover:shadow-md border-2 border-dashed hover:border-primary/50">
+              <CardContent className="p-6 text-center">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="p-4 rounded-full bg-green-100">
+                    <Plus className="h-8 w-8 text-green-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-lg">Create Rubric</h4>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Create detailed grading criteria with performance levels for better feedback.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </DialogTrigger>
+      </div>
+
+      {/* Show selected rubric preview if one is selected */}
+      {selectedRubricId && selectedRubricId !== '' && (
+        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <Check className="h-5 w-5 text-green-600" />
+            <h4 className="font-semibold text-green-800">Rubric Selected</h4>
+          </div>
+          <p className="text-sm text-green-700">
+            A custom rubric has been created and will be used for grading this assessment.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={() => setCreateRubricOpen(true)}
+          >
+            <Eye className="h-4 w-4 mr-2" />
+            Preview & Edit Rubric
+          </Button>
+        </div>
+      )}
+
+      {/* Create Rubric Dialog */}
+      <Dialog open={createRubricOpen} onOpenChange={(open) => {
+        setCreateRubricOpen(open);
+        if (!open) {
+          resetRubricForm();
+        }
+      }}>
+        <DialogTrigger asChild>
+          <div style={{ display: 'none' }} />
+        </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Rubric</DialogTitle>
@@ -543,12 +460,29 @@ export function RubricSelector({
               )}
 
               {/* Reusable Criteria from Topic and Learning Outcomes */}
-              {reusableCriteriaData?.criteria && reusableCriteriaData.criteria.length > 0 && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Reusable Criteria</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Select existing criteria from this topic and your selected learning outcomes to reuse in this rubric:
-                  </p>
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Reusable Criteria</h3>
+                <p className="text-sm text-muted-foreground">
+                  Search and select existing criteria from this topic and your selected learning outcomes to reuse in this rubric:
+                </p>
+
+                {/* Search input for criteria */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search existing criteria..."
+                    value={criteriaSearch}
+                    onChange={(e) => setCriteriaSearch(e.target.value)}
+                    className="w-full px-3 py-2 pl-10 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                </div>
+
+                {reusableCriteriaData?.criteria && reusableCriteriaData.criteria.length > 0 ? (
                   <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-4">
                     {reusableCriteriaData.criteria.map((criterion) => (
                       <div key={criterion.id} className="flex items-start space-x-3">
@@ -580,8 +514,15 @@ export function RubricSelector({
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {criteriaSearch ?
+                      `No criteria found matching "${criteriaSearch}"` :
+                      'No reusable criteria available for this topic and learning outcomes'
+                    }
+                  </div>
+                )}
+              </div>
 
               {/* Comprehensive Rubric Criteria Editor */}
               <LearningOutcomeCriteriaEditor
@@ -613,32 +554,6 @@ export function RubricSelector({
             </div>
           </DialogContent>
         </Dialog>
-      </div>
-
-      {/* Selection Summary */}
-      <div className="mt-6 p-4 bg-primary/5 border border-primary/20 rounded-lg">
-        {selectedRubricId ? (
-          <div className="flex items-center gap-2 text-sm text-primary">
-            <Check className="h-4 w-4" />
-            <span className="font-medium">
-              Rubric selected: {rubrics?.find(r => r.id === selectedRubricId)?.name}
-            </span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 text-sm text-primary">
-            <Check className="h-4 w-4" />
-            <span className="font-medium">
-              Simple scoring selected
-            </span>
-          </div>
-        )}
-        <p className="text-xs text-muted-foreground mt-1">
-          {selectedRubricId
-            ? 'Students will be graded using detailed criteria with performance levels.'
-            : 'Students will be graded with a simple score out of maximum points.'
-          }
-        </p>
-      </div>
     </div>
   );
 }

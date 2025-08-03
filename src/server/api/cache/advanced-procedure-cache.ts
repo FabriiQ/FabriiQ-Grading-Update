@@ -45,13 +45,13 @@ export const CACHE_CONFIG = {
   }
 };
 
-// Cache instances for different data types
+// Cache instances for different data types - fixed mapping
 const caches = {
-  userData: new LRUCache<string, any>(CACHE_CONFIG.USER_DATA),
-  analytics: new LRUCache<string, any>(CACHE_CONFIG.ANALYTICS),
-  classData: new LRUCache<string, any>(CACHE_CONFIG.CLASS_DATA),
-  leaderboards: new LRUCache<string, any>(CACHE_CONFIG.LEADERBOARDS),
-  systemConfig: new LRUCache<string, any>(CACHE_CONFIG.SYSTEM_CONFIG),
+  USER_DATA: new LRUCache<string, any>(CACHE_CONFIG.USER_DATA),
+  ANALYTICS: new LRUCache<string, any>(CACHE_CONFIG.ANALYTICS),
+  CLASS_DATA: new LRUCache<string, any>(CACHE_CONFIG.CLASS_DATA),
+  LEADERBOARDS: new LRUCache<string, any>(CACHE_CONFIG.LEADERBOARDS),
+  SYSTEM_CONFIG: new LRUCache<string, any>(CACHE_CONFIG.SYSTEM_CONFIG),
 };
 
 // Request deduplication map to prevent duplicate concurrent requests
@@ -70,7 +70,13 @@ export class AdvancedProcedureCache {
     category: keyof typeof CACHE_CONFIG = 'CLASS_DATA'
   ): Promise<T> {
     const cache = caches[category];
-    
+
+    // Safety check - if cache is undefined, just execute the function
+    if (!cache) {
+      logger.warn('Cache not found for category, executing without cache', { category, cacheKey });
+      return fetchFn();
+    }
+
     // Check cache first
     const cached = cache.get(cacheKey);
     if (cached !== undefined) {

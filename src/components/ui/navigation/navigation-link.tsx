@@ -69,7 +69,7 @@ export function NavigationLink({
       if (showLoadingIndicator) {
         setShowLoader(true);
       }
-    }, 300);
+    }, 150);
 
     // Navigate with options
     await navigate(href, {

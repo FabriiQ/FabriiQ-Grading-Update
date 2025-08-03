@@ -80,7 +80,7 @@ export function TeacherBottomNav() {
             )}
             activeClassName="text-primary"
             hapticFeedback={true}
-            showLoadingIndicator={false}
+            showLoadingIndicator={true}
             preserveScroll={true}
           >
             <div className={cn(

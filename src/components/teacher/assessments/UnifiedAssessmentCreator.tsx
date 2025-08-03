@@ -11,8 +11,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ActivityErrorBoundary } from '@/features/activties/components/error-handling/ActivityErrorBoundary';
-import { handleActivityError, handleTRPCError } from '@/features/activties/services/error-handling.service';
+import { api } from '@/trpc/react';
 import {
   Card,
   CardContent,
@@ -61,30 +60,9 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
-// Unified enums and types
-export enum AssessmentCategory {
-  QUIZ = 'QUIZ',
-  TEST = 'TEST',
-  ASSIGNMENT = 'ASSIGNMENT',
-  PROJECT = 'PROJECT',
-  EXAM = 'EXAM',
-  ESSAY = 'ESSAY'
-}
-
-export enum GradingType {
-  MANUAL = 'MANUAL',
-  AUTO = 'AUTO',
-  HYBRID = 'HYBRID'
-}
-
-export enum BloomsTaxonomyLevel {
-  REMEMBER = 'REMEMBER',
-  UNDERSTAND = 'UNDERSTAND',
-  APPLY = 'APPLY',
-  ANALYZE = 'ANALYZE',
-  EVALUATE = 'EVALUATE',
-  CREATE = 'CREATE'
-}
+// Import enums from server constants to ensure consistency
+import { AssessmentCategory, GradingType, SystemStatus } from '@/server/api/constants';
+import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 // Unified form schema - single source of truth
 const unifiedAssessmentSchema = z.object({
@@ -126,13 +104,13 @@ const unifiedAssessmentSchema = z.object({
   dueDate: z.date().optional(),
   timeLimit: z.number().min(1).optional(),
   maxAttempts: z.number().min(1).max(10).default(1),
-  
+
   // Settings
   allowLateSubmissions: z.boolean().default(false),
   showRubricToStudents: z.boolean().default(true),
   randomizeQuestions: z.boolean().default(false),
   isPublished: z.boolean().default(false),
-  
+
   // Optional References
   rubricId: z.string().optional(),
   termId: z.string().optional(),
@@ -172,30 +150,71 @@ export function UnifiedAssessmentCreator({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  // Form setup with unified schema
+  // tRPC mutations
+  const createAssessmentMutation = api.assessment.create.useMutation({
+    onSuccess: (data) => {
+      console.log('Assessment created successfully:', data);
+      if (onSuccess) {
+        onSuccess(data);
+      }
+    },
+    onError: (error) => {
+      console.error('Error creating assessment:', error);
+      setValidationErrors([error.message || 'Failed to create assessment']);
+    }
+  });
+
+  const updateAssessmentMutation = api.assessment.update.useMutation({
+    onSuccess: (data) => {
+      console.log('Assessment updated successfully:', data);
+      if (onSuccess) {
+        onSuccess(data);
+      }
+    },
+    onError: (error) => {
+      console.error('Error updating assessment:', error);
+      setValidationErrors([error.message || 'Failed to update assessment']);
+    }
+  });
+
+  // Form setup with unified schema - ensure all fields have proper default values
   const form = useForm<UnifiedAssessmentFormValues>({
     resolver: zodResolver(unifiedAssessmentSchema),
     defaultValues: {
-      title: '',
-      description: '',
-      instructions: '',
-      category: AssessmentCategory.QUIZ,
-      gradingType: GradingType.MANUAL,
-      bloomsLevel: BloomsTaxonomyLevel.UNDERSTAND,
-      classId,
-      subjectId: initialSubjectId || '',
-      topicId: initialTopicId || '',
-      maxScore: 100,
-      passingScore: 60,
-      weightage: 10,
-      maxAttempts: 1,
-      allowLateSubmissions: false,
-      showRubricToStudents: true,
-      randomizeQuestions: false,
-      isPublished: false,
-      ...initialData,
+      title: initialData?.title || '',
+      description: initialData?.description || '',
+      instructions: initialData?.instructions || '',
+      category: initialData?.category || AssessmentCategory.QUIZ,
+      gradingType: initialData?.gradingType || GradingType.MANUAL,
+      bloomsLevel: initialData?.bloomsLevel || BloomsTaxonomyLevel.UNDERSTAND,
+      classId: initialData?.classId || classId,
+      subjectId: initialData?.subjectId || initialSubjectId || '',
+      topicId: initialData?.topicId || initialTopicId || '',
+      maxScore: initialData?.maxScore || 100,
+      passingScore: initialData?.passingScore || 60,
+      weightage: initialData?.weightage || 10,
+      maxAttempts: initialData?.maxAttempts || 1,
+      allowLateSubmissions: initialData?.allowLateSubmissions || false,
+      showRubricToStudents: initialData?.showRubricToStudents !== undefined ? initialData.showRubricToStudents : true,
+      randomizeQuestions: initialData?.randomizeQuestions || false,
+      isPublished: initialData?.isPublished || false,
+      dueDate: initialData?.dueDate || undefined,
+      timeLimit: initialData?.timeLimit || undefined,
+      rubricId: initialData?.rubricId || undefined,
+      termId: initialData?.termId || undefined,
     }
   });
+
+  // Data fetching
+  const { data: subjects, isLoading: subjectsLoading } = api.subject.getAll.useQuery({});
+  const { data: classInfo } = api.class.getById.useQuery({ classId }, { enabled: !!classId });
+
+  // Get topics for selected subject
+  const selectedSubjectId = form.watch('subjectId');
+  const { data: topics } = api.subjectTopic.listTopics.useQuery(
+    { subjectId: selectedSubjectId },
+    { enabled: !!selectedSubjectId }
+  );
 
   // Watch form values for validation
   const watchedValues = form.watch();
@@ -251,7 +270,8 @@ export function UnifiedAssessmentCreator({
   // Form submission
   const onSubmit = async (data: UnifiedAssessmentFormValues) => {
     setIsSubmitting(true);
-    
+    setValidationErrors([]);
+
     try {
       // Validate all steps
       const isValid = await validateCurrentStep();
@@ -260,23 +280,47 @@ export function UnifiedAssessmentCreator({
         return;
       }
 
-      // Submit assessment
-      console.log('Submitting assessment:', data);
-      
-      // Mock API call - replace with actual implementation
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Success callback
-      if (onSuccess) {
-        onSuccess(data);
+      // Prepare assessment data for API
+      const assessmentData = {
+        title: data.title,
+        description: data.description,
+        instructions: data.instructions,
+        category: data.category,
+        gradingType: data.gradingType,
+        classId: data.classId,
+        subjectId: data.subjectId,
+        topicId: data.topicId,
+        maxScore: data.maxScore,
+        passingScore: data.passingScore,
+        weightage: data.weightage,
+        dueDate: data.dueDate,
+        timeLimit: data.timeLimit,
+        maxAttempts: data.maxAttempts,
+        allowLateSubmissions: data.allowLateSubmissions,
+        showRubricToStudents: data.showRubricToStudents,
+        randomizeQuestions: data.randomizeQuestions,
+        isPublished: data.isPublished,
+        rubricId: data.rubricId,
+        termId: data.termId,
+        bloomsLevel: data.bloomsLevel,
+        status: SystemStatus.ACTIVE
+      };
+
+      console.log('Submitting assessment:', assessmentData);
+
+      // Submit assessment using tRPC
+      if (mode === 'edit' && assessmentId) {
+        await updateAssessmentMutation.mutateAsync({
+          id: assessmentId,
+          ...assessmentData
+        });
+      } else {
+        await createAssessmentMutation.mutateAsync(assessmentData);
       }
-      
-      // Show success message
-      alert('Assessment created successfully!');
-      
+
     } catch (error) {
-      console.error('Error creating assessment:', error);
-      alert('Failed to create assessment. Please try again.');
+      console.error('Error submitting assessment:', error);
+      // Error handling is done in the mutation callbacks
     } finally {
       setIsSubmitting(false);
     }

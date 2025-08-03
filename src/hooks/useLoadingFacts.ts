@@ -3,9 +3,16 @@
 import { useState, useEffect } from 'react';
 import { getRandomFact, EDUCATIONAL_FACTS } from '@/utils/query-config';
 
+interface CustomFact {
+  id: string;
+  fact: string;
+  category?: string;
+  source?: string;
+}
+
 /**
  * Hook for displaying educational facts during loading states
- * 
+ *
  * @param options Configuration options
  * @returns Object with current fact and functions to control facts
  */
@@ -14,50 +21,61 @@ export function useLoadingFacts(options: {
   interval?: number;
   category?: 'general' | 'math' | 'science' | 'language';
   autoRotate?: boolean;
+  customFacts?: CustomFact[];
 } = {}) {
   const {
     isLoading = false,
     interval = 5000,
     autoRotate = true,
+    customFacts,
   } = options;
 
-  const [currentFact, setCurrentFact] = useState<string>(getRandomFact());
+  // Use custom facts if provided, otherwise use default facts
+  const factsArray = customFacts || EDUCATIONAL_FACTS.map(fact => ({ id: fact, fact, category: 'general' }));
+
+  const [currentFact, setCurrentFact] = useState<CustomFact>(
+    customFacts ? customFacts[0] : { id: getRandomFact(), fact: getRandomFact(), category: 'general' }
+  );
   const [factIndex, setFactIndex] = useState<number>(0);
 
   // Update fact when loading state changes
   useEffect(() => {
-    if (isLoading) {
-      setCurrentFact(getRandomFact());
+    if (isLoading && factsArray.length > 0) {
+      const randomIndex = Math.floor(Math.random() * factsArray.length);
+      setCurrentFact(factsArray[randomIndex]);
+      setFactIndex(randomIndex);
     }
-  }, [isLoading]);
+  }, [isLoading, factsArray]);
 
   // Auto-rotate facts during extended loading
   useEffect(() => {
-    if (!isLoading || !autoRotate) return;
+    if (!isLoading || !autoRotate || factsArray.length === 0) return;
 
     const timer = setInterval(() => {
-      const newIndex = (factIndex + 1) % EDUCATIONAL_FACTS.length;
+      const newIndex = (factIndex + 1) % factsArray.length;
       setFactIndex(newIndex);
-      setCurrentFact(EDUCATIONAL_FACTS[newIndex]);
+      setCurrentFact(factsArray[newIndex]);
     }, interval);
 
     return () => clearInterval(timer);
-  }, [isLoading, interval, factIndex, autoRotate]);
+  }, [isLoading, interval, factIndex, autoRotate, factsArray]);
 
   // Function to manually get the next fact
   const nextFact = () => {
-    const newIndex = (factIndex + 1) % EDUCATIONAL_FACTS.length;
+    if (factsArray.length === 0) return currentFact;
+    const newIndex = (factIndex + 1) % factsArray.length;
     setFactIndex(newIndex);
-    setCurrentFact(EDUCATIONAL_FACTS[newIndex]);
-    return EDUCATIONAL_FACTS[newIndex];
+    setCurrentFact(factsArray[newIndex]);
+    return factsArray[newIndex];
   };
 
   // Function to manually get the previous fact
   const previousFact = () => {
-    const newIndex = factIndex === 0 ? EDUCATIONAL_FACTS.length - 1 : factIndex - 1;
+    if (factsArray.length === 0) return currentFact;
+    const newIndex = factIndex === 0 ? factsArray.length - 1 : factIndex - 1;
     setFactIndex(newIndex);
-    setCurrentFact(EDUCATIONAL_FACTS[newIndex]);
-    return EDUCATIONAL_FACTS[newIndex];
+    setCurrentFact(factsArray[newIndex]);
+    return factsArray[newIndex];
   };
 
   return {

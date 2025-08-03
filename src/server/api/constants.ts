@@ -90,6 +90,7 @@ export enum FeedbackSeverity {
 }
 
 export enum SubmissionStatus {
+  PENDING = "PENDING",          // Not yet submitted
   DRAFT = "DRAFT",
   SUBMITTED = "SUBMITTED",
   UNDER_REVIEW = "UNDER_REVIEW",

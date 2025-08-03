@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -42,8 +42,8 @@ export function MasteryProgressReport({
   const [activeTab, setActiveTab] = useState<'overview' | 'details'>('overview');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  // Calculate date range based on selected time range
-  const getDateRange = () => {
+  // Calculate date range based on selected time range - memoized to prevent infinite re-renders
+  const { startDate, endDate } = useMemo(() => {
     const endDate = new Date();
     let startDate: Date;
 
@@ -65,15 +65,19 @@ export function MasteryProgressReport({
     }
 
     return { startDate, endDate };
-  };
+  }, [timeRange]);
 
-  const { startDate, endDate } = getDateRange();
-
-  // Get mastery progress data
+  // Get mastery progress data with optimized query options
   const { data: masteryProgress, isLoading } = api.bloomsAnalytics.getClassPerformance.useQuery({
     classId,
     startDate: startDate.toISOString(),
     endDate: endDate.toISOString()
+  }, {
+    // Prevent unnecessary refetches
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Generate PDF report

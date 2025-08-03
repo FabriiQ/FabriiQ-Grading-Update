@@ -245,5 +245,19 @@ Generate exactly ${questionCount} questions and return only the JSON array, no a
   }
 }
 
-// Export singleton instance
-export const aiQuestionGeneratorService = new AIQuestionGeneratorService();
+// Export lazy singleton instance to avoid client-side instantiation
+let _aiQuestionGeneratorService: AIQuestionGeneratorService | null = null;
+
+export const aiQuestionGeneratorService = {
+  getInstance(): AIQuestionGeneratorService {
+    if (!_aiQuestionGeneratorService) {
+      _aiQuestionGeneratorService = new AIQuestionGeneratorService();
+    }
+    return _aiQuestionGeneratorService;
+  },
+
+  // Delegate methods for backward compatibility
+  async generateQuestions(request: QuestionGenerationRequest): Promise<QuestionGenerationResponse> {
+    return this.getInstance().generateQuestions(request);
+  }
+};

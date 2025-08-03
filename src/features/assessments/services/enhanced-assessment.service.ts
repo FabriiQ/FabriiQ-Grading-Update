@@ -67,8 +67,7 @@ export class EnhancedAssessmentService {
         enhancedSettings: input.enhancedSettings ? input.enhancedSettings : null,
         questionBankRefs: input.questionBankRefs ?? [],
 
-        // Legacy support - store questions in rubric if provided and no content
-        rubric: this.prepareLegacyRubric(input),
+        // Remove JSON rubric storage - use only rubricId for proper referencing
       };
 
       // Create the assessment

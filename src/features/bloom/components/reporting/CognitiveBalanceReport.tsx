@@ -46,9 +46,15 @@ export function CognitiveBalanceReport({
   const [activeTab, setActiveTab] = useState<'overview' | 'recommendations' | 'adjustments'>('overview');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  // Get class performance data
+  // Get class performance data with optimized query options
   const { data: classPerformance, isLoading } = api.bloomsAnalytics.getClassPerformance.useQuery({
     classId
+  }, {
+    // Prevent unnecessary refetches
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Generate PDF report

@@ -12,6 +12,7 @@ export const env = createEnv({
     OPENAI_API_KEY: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     GOOGLE_API_KEY: z.string().optional(),
+    GEMINI_API_KEY: z.string().optional(),
 
     // LLM token limits
     LLM_INPUT_TOKEN_LIMIT: z.string().transform(Number).optional(),
@@ -23,6 +24,7 @@ export const env = createEnv({
   },
   client: {
     // Add client-side env variables here if needed
+    NEXT_PUBLIC_GEMINI_API_KEY: z.string().optional(),
   },
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,
@@ -34,6 +36,7 @@ export const env = createEnv({
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 
     // LLM token limits
     LLM_INPUT_TOKEN_LIMIT: process.env.LLM_INPUT_TOKEN_LIMIT,
@@ -42,5 +45,8 @@ export const env = createEnv({
 
     // LangGraph configuration
     LANGGRAPH_API_URL: process.env.LANGGRAPH_API_URL,
+
+    // Client-side env variables
+    NEXT_PUBLIC_GEMINI_API_KEY: process.env.NEXT_PUBLIC_GEMINI_API_KEY,
   },
 });
