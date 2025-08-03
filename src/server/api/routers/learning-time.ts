@@ -89,4 +89,56 @@ export const learningTimeRouter = createTRPCRouter({
         endDate: input.endDate,
       });
     }),
+
+  // Get class-wide time statistics (for teachers)
+  getClassTimeStats: protectedProcedure
+    .input(
+      z.object({
+        classId: z.string(),
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      // Ensure user is authenticated
+      if (!ctx.session?.user?.id) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Not authenticated',
+        });
+      }
+
+      const learningTimeService = new LearningTimeService({ prisma: ctx.prisma });
+      return learningTimeService.getClassTimeStats({
+        classId: input.classId,
+        startDate: input.startDate,
+        endDate: input.endDate,
+      });
+    }),
+
+  // Get student time comparison for a class (for teachers)
+  getStudentTimeComparison: protectedProcedure
+    .input(
+      z.object({
+        classId: z.string(),
+        startDate: z.date().optional(),
+        endDate: z.date().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      // Ensure user is authenticated
+      if (!ctx.session?.user?.id) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Not authenticated',
+        });
+      }
+
+      const learningTimeService = new LearningTimeService({ prisma: ctx.prisma });
+      return learningTimeService.getStudentTimeComparison({
+        classId: input.classId,
+        startDate: input.startDate,
+        endDate: input.endDate,
+      });
+    }),
 });

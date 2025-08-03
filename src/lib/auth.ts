@@ -46,8 +46,12 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { username: credentials.username },
+        // Use optimized query with composite index
+        const user = await prisma.user.findFirst({
+          where: {
+            username: credentials.username,
+            status: "ACTIVE"
+          },
           select: {
             id: true,
             name: true,

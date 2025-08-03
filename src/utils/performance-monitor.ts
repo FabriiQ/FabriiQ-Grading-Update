@@ -42,25 +42,94 @@ export const logLoginPerformance = (metrics: Omit<LoginPerformanceMetrics, 'dura
     timestamp: new Date().toISOString()
   });
   
-  // Alert if login takes longer than 2 seconds
-  if (duration > 2000) {
-    logger.warn("Slow login detected", { 
-      username: fullMetrics.username, 
-      duration: `${duration}ms`, 
-      targetUrl: fullMetrics.targetUrl 
+  // Enhanced performance alerting with severity levels
+  const severity = duration > 15000 ? 'CRITICAL' :
+                  duration > 5000 ? 'HIGH' :
+                  duration > 2000 ? 'MEDIUM' : 'LOW';
+
+  if (severity === 'CRITICAL') {
+    logger.error("Critical login performance issue", JSON.stringify({
+      username: fullMetrics.username,
+      duration: `${duration}ms`,
+      targetUrl: fullMetrics.targetUrl,
+      severity
+    }));
+  } else if (severity === 'HIGH') {
+    logger.warn("High login performance issue", {
+      username: fullMetrics.username,
+      duration: `${duration}ms`,
+      targetUrl: fullMetrics.targetUrl,
+      severity
+    });
+  } else if (severity === 'MEDIUM') {
+    logger.warn("Slow login detected", {
+      username: fullMetrics.username,
+      duration: `${duration}ms`,
+      targetUrl: fullMetrics.targetUrl,
+      severity
     });
   }
 
-  // Alert if login takes longer than 5 seconds (critical)
-  if (duration > 5000) {
-    logger.error("Critical login performance issue", { 
-      username: fullMetrics.username, 
-      duration: `${duration}ms`, 
-      targetUrl: fullMetrics.targetUrl 
-    });
+  // Store performance metrics for analysis
+  if (typeof window !== 'undefined') {
+    const perfKey = `login_perf_${Date.now()}`;
+    try {
+      localStorage.setItem(perfKey, JSON.stringify(fullMetrics));
+
+      // Keep only last 50 performance entries
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('login_perf_'));
+      if (keys.length > 50) {
+        keys.sort().slice(0, keys.length - 50).forEach(k => localStorage.removeItem(k));
+      }
+    } catch (e) {
+      // Ignore localStorage errors
+    }
   }
 
   return fullMetrics;
+};
+
+/**
+ * Get login performance statistics from localStorage
+ */
+export const getLoginPerformanceStats = () => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('login_perf_'));
+    const metrics = keys.map(k => JSON.parse(localStorage.getItem(k) || '{}'));
+
+    if (metrics.length === 0) return null;
+
+    const durations = metrics.map(m => m.duration).filter(d => d > 0);
+    const successfulLogins = metrics.filter(m => m.success);
+
+    return {
+      totalLogins: metrics.length,
+      successfulLogins: successfulLogins.length,
+      averageDuration: durations.reduce((a, b) => a + b, 0) / durations.length,
+      maxDuration: Math.max(...durations),
+      minDuration: Math.min(...durations),
+      slowLogins: metrics.filter(m => m.duration > 5000).length,
+      criticalLogins: metrics.filter(m => m.duration > 15000).length,
+    };
+  } catch (e) {
+    return null;
+  }
+};
+
+/**
+ * Clear login performance data
+ */
+export const clearLoginPerformanceData = () => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('login_perf_'));
+    keys.forEach(k => localStorage.removeItem(k));
+  } catch (e) {
+    // Ignore errors
+  }
 };
 
 /**

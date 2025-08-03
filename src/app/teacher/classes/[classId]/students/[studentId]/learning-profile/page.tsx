@@ -2,18 +2,22 @@
 
 import { useSession } from 'next-auth/react';
 import { redirect, useParams } from 'next/navigation';
-import { StudentLearningProfileDetailed } from '@/features/learning-patterns/components/StudentLearningProfileDetailed';
+import { StudentLearningProfile } from '@/features/learning-patterns/components/StudentLearningProfile';
+import { LearningTimeAnalytics } from '@/components/analytics/LearningTimeAnalytics';
 import { api } from '@/trpc/react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 
 export default function StudentLearningProfilePage() {
   const { data: session, status } = useSession();
   const params = useParams();
-  const classId = params.classId as string;
-  const studentId = params.studentId as string;
+  const classId = params?.classId as string;
+  const studentId = params?.studentId as string;
 
   // Redirect if not authenticated or not a teacher
   if (status === 'loading') {
@@ -48,12 +52,12 @@ export default function StudentLearningProfilePage() {
   }
 
   // Get class information
-  const { data: classInfo, isLoading: classLoading, error: classError } = 
-    api.class.getClassById.useQuery({ classId });
+  const { data: classInfo, isLoading: classLoading, error: classError } =
+    api.class.getById.useQuery({ classId });
 
   // Get student information
-  const { data: studentInfo, isLoading: studentLoading, error: studentError } = 
-    api.student.getStudentById.useQuery({ studentId });
+  const { data: studentInfo, isLoading: studentLoading, error: studentError } =
+    api.systemAnalytics.getStudentById.useQuery({ id: studentId });
 
   // Get student learning patterns
   const { data: learningPatterns, isLoading: patternsLoading, error: patternsError } = 
@@ -87,7 +91,10 @@ export default function StudentLearningProfilePage() {
   }
 
   // Verify teacher has access to this class
-  if (classInfo.teacherId !== session.user.id) {
+  const hasAccess = classInfo.teachers?.some(teacher => teacher.teacherId === session.user.id) ||
+                   classInfo.classTeacher?.userId === session.user.id;
+
+  if (!hasAccess) {
     return (
       <div className="container mx-auto py-8">
         <Alert>
@@ -108,24 +115,41 @@ export default function StudentLearningProfilePage() {
             href={`/teacher/classes/${classId}/learning-patterns`}
             className="text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4" />
           </Link>
           <h1 className="text-2xl font-bold">
-            Learning Profile - {studentInfo.user.name}
+            Learning Profile - {studentInfo.name}
           </h1>
         </div>
         <p className="text-muted-foreground">
-          Detailed learning pattern analysis for {studentInfo.user.name} in {classInfo.name}
+          Detailed learning pattern analysis for {studentInfo.name} in {classInfo.name}
         </p>
       </div>
 
-      <StudentLearningProfileDetailed
-        studentId={studentId}
-        studentName={studentInfo.user.name}
-        classId={classId}
-        className={classInfo.name}
-        profile={learningPatterns}
-      />
+      <Tabs defaultValue="patterns" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="patterns">Learning Patterns</TabsTrigger>
+          <TabsTrigger value="time-analytics">Time Analytics</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="patterns">
+          <StudentLearningProfile
+            studentId={studentId}
+            studentName={studentInfo.name}
+            classId={classId}
+            profile={learningPatterns}
+          />
+        </TabsContent>
+
+        <TabsContent value="time-analytics">
+          <LearningTimeAnalytics
+            studentId={studentId}
+            classId={classId}
+            timeframe="month"
+            showComparison={true}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

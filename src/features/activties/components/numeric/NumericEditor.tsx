@@ -9,6 +9,8 @@ import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, AlertCircle } from 'lucide-react';
+import { AIActivityGeneratorButton } from '@/features/ai-question-generator/components/AIActivityGeneratorButton';
+import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 // Custom Calculator icon
 const Calculator = (props: React.SVGProps<SVGSVGElement>) => (
@@ -329,6 +331,36 @@ export const NumericEditor: React.FC<NumericEditorProps> = ({
     );
   };
 
+  // Handle AI-generated content
+  const handleAIContentGenerated = (content: any) => {
+    if (content.problems && Array.isArray(content.problems)) {
+      const newQuestions: NumericQuestion[] = content.problems.map((problem: any) => ({
+        id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+        text: problem.text,
+        correctAnswer: problem.correctAnswer,
+        tolerance: problem.tolerance || 0.1,
+        unit: problem.unit || '',
+        explanation: problem.explanation || '',
+        hint: problem.hint || '',
+        points: problem.points || 1,
+        acceptableRange: problem.tolerance ? {
+          min: problem.correctAnswer - problem.tolerance,
+          max: problem.correctAnswer + problem.tolerance
+        } : undefined
+      }));
+
+      // Add the new questions to the activity
+      updateActivity({
+        questions: [...localActivity.questions, ...newQuestions]
+      });
+
+      // Update current question index to show the first new question
+      if (newQuestions.length > 0) {
+        setCurrentQuestionIndex(localActivity.questions.length);
+      }
+    }
+  };
+
   return (
     <ThemeWrapper className={cn("w-full", className)}>
       {/* Feedback message */}
@@ -554,6 +586,22 @@ export const NumericEditor: React.FC<NumericEditorProps> = ({
               Add Question
             </ActivityButton>
           </div>
+        </div>
+
+        {/* AI Numeric Problems Generator */}
+        <div className="mb-6">
+          <AIActivityGeneratorButton
+            activityType="numeric"
+            activityTitle={localActivity.title}
+            selectedTopics={[localActivity.title]}
+            selectedLearningOutcomes={[localActivity.description || 'Solve numerical problems']}
+            selectedBloomsLevel={BloomsTaxonomyLevel.APPLY}
+            selectedActionVerbs={['calculate', 'solve', 'compute', 'determine']}
+            onContentGenerated={handleAIContentGenerated}
+            onError={(error) => {
+              console.error('AI Content Generation Error:', error);
+            }}
+          />
         </div>
       </div>
 

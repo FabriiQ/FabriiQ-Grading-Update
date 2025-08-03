@@ -58,7 +58,9 @@ export function useSocialWallSocket({
       const socket = io(`/class-${classId}`, {
         path: '/api/socket/social-wall',
         auth: {
-          token: session.user.id, // Use user ID as token for now
+          token: session.user.id, // Use user ID as token for simplified auth
+          userId: session.user.id,
+          classId: classId,
         },
         transports: ['websocket', 'polling'],
         timeout: 20000,
@@ -66,6 +68,7 @@ export function useSocialWallSocket({
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
+        forceNew: false,
       });
 
       socketRef.current = socket;
@@ -95,15 +98,32 @@ export function useSocialWallSocket({
       });
 
       socket.on('connect_error', (error) => {
+        const errorMessage = error.message || 'Connection failed';
         setSocketState(prev => ({
           ...prev,
           isConnected: false,
           isConnecting: false,
-          connectionError: error.message,
+          connectionError: errorMessage,
           reconnectAttempts: prev.reconnectAttempts + 1,
         }));
-        
-        logger.error('Socket connection error', { classId, error: error.message });
+
+        // Log detailed error information
+        logger.error('Socket connection error', {
+          classId,
+          error: errorMessage,
+          errorDetails: JSON.stringify(error),
+          reconnectAttempts: socketState.reconnectAttempts + 1,
+          namespace: `/class-${classId}`,
+          path: '/api/socket/social-wall'
+        });
+
+        // If it's an "Invalid namespace" error, provide more context
+        if (errorMessage.includes('Invalid namespace')) {
+          logger.error('Invalid namespace error - check server namespace configuration', {
+            expectedNamespace: `/class-${classId}`,
+            serverPath: '/api/socket/social-wall'
+          });
+        }
       });
 
       socket.on('reconnect', (attemptNumber) => {

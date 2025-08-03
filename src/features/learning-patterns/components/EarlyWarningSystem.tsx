@@ -117,10 +117,10 @@ export function EarlyWarningSystem({ warnings, isLoading, classId }: EarlyWarnin
     <div className="space-y-6">
       {/* Summary Alert */}
       {(criticalWarnings.length > 0 || highWarnings.length > 0) && (
-        <Alert variant="destructive">
+        <Alert className="border-destructive bg-destructive/10">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Immediate Attention Required:</strong> {criticalWarnings.length + highWarnings.length} 
+            <strong>Immediate Attention Required:</strong> {criticalWarnings.length + highWarnings.length}
             {criticalWarnings.length + highWarnings.length === 1 ? ' student needs' : ' students need'} urgent intervention.
           </AlertDescription>
         </Alert>

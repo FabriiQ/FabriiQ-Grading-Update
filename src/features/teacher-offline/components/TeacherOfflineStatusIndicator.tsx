@@ -226,13 +226,13 @@ export const TeacherOfflineStatusIndicator: React.FC<TeacherOfflineStatusIndicat
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span>Pending items:</span>
-                  <span className={syncStatus?.pendingItems > 0 ? 'text-orange-600' : 'text-gray-600'}>
+                  <span className={(syncStatus?.pendingItems || 0) > 0 ? 'text-orange-600' : 'text-gray-600'}>
                     {syncStatus?.pendingItems || 0}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Failed items:</span>
-                  <span className={syncStatus?.failedItems > 0 ? 'text-red-600' : 'text-gray-600'}>
+                  <span className={(syncStatus?.failedItems || 0) > 0 ? 'text-red-600' : 'text-gray-600'}>
                     {syncStatus?.failedItems || 0}
                   </span>
                 </div>
@@ -277,7 +277,7 @@ export const TeacherOfflineStatusIndicator: React.FC<TeacherOfflineStatusIndicat
                 </button>
               )}
 
-              {syncStatus?.failedItems > 0 && (
+              {(syncStatus?.failedItems || 0) > 0 && (
                 <button
                   onClick={handleRetryFailedSync}
                   className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"

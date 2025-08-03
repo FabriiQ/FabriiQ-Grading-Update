@@ -1,9 +1,11 @@
 /**
  * Unified Assessment Creator
- * 
+ *
  * Production-ready assessment creator that consolidates all previous implementations
  * and fixes UI inconsistencies, duplicate configurations, and form schema issues.
  */
+
+"use client";
 
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';

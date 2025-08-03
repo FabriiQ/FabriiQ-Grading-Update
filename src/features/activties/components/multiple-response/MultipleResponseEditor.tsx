@@ -13,6 +13,8 @@ import { ActivityButton } from '../ui/ActivityButton';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { cn } from '@/lib/utils';
 import { useResponsive } from '@/lib/hooks/use-responsive';
+import { AIActivityGeneratorButton } from '@/features/ai-question-generator/components/AIActivityGeneratorButton';
+import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 export interface MultipleResponseEditorProps {
   activity: MultipleResponseActivity;
@@ -122,6 +124,29 @@ export const MultipleResponseEditor: React.FC<MultipleResponseEditorProps> = ({
           setIsSaving(false);
         }, 500);
       }
+    }
+  };
+
+  // Handle AI-generated content
+  const handleAIContentGenerated = (content: any) => {
+    if (content.questions && Array.isArray(content.questions)) {
+      const newQuestions: MultipleResponseQuestion[] = content.questions.map((q: any) => ({
+        id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+        text: q.text,
+        options: q.options ? q.options.map((opt: any, index: number) => ({
+          id: opt.id || `opt_${Date.now()}_${index}`,
+          text: opt.text,
+          isCorrect: opt.isCorrect || false
+        })) : [],
+        explanation: q.explanation || '',
+        hint: q.hint || '',
+        points: q.points || 1
+      }));
+
+      // Add the new questions to the activity
+      updateActivity({
+        questions: [...localActivity.questions, ...newQuestions]
+      });
     }
   };
 
@@ -263,13 +288,31 @@ export const MultipleResponseEditor: React.FC<MultipleResponseEditorProps> = ({
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Questions</h2>
-          <ActivityButton
-            onClick={handleAddQuestion}
-            variant="success"
-            icon="plus"
-          >
-            Add Question
-          </ActivityButton>
+          <div className="flex gap-2">
+            <ActivityButton
+              onClick={handleAddQuestion}
+              variant="success"
+              icon="plus"
+            >
+              Add Question
+            </ActivityButton>
+          </div>
+        </div>
+
+        {/* AI Multiple Response Generator */}
+        <div className="mb-6">
+          <AIActivityGeneratorButton
+            activityType="multiple-response"
+            activityTitle={localActivity.title}
+            selectedTopics={[localActivity.title]}
+            selectedLearningOutcomes={[localActivity.description || 'Select multiple correct answers']}
+            selectedBloomsLevel={BloomsTaxonomyLevel.UNDERSTAND}
+            selectedActionVerbs={['select', 'identify', 'choose', 'recognize']}
+            onContentGenerated={handleAIContentGenerated}
+            onError={(error) => {
+              console.error('AI Content Generation Error:', error);
+            }}
+          />
         </div>
 
         <AnimatePresence>

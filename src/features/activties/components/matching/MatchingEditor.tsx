@@ -13,6 +13,8 @@ import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { cn } from '@/lib/utils';
 import { generateId } from '../../models/base';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { AIActivityGeneratorButton } from '@/features/ai-question-generator/components/AIActivityGeneratorButton';
+import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 // Custom GripVertical icon
 const GripVertical = (props: React.SVGProps<SVGSVGElement>) => (
@@ -157,6 +159,33 @@ export const MatchingEditor: React.FC<MatchingEditorProps> = ({
   const handleSave = () => {
     if (onSave) {
       onSave(localActivity);
+    }
+  };
+
+  // Handle AI-generated content
+  const handleAIContentGenerated = (content: any) => {
+    if (content.matchingSets && Array.isArray(content.matchingSets)) {
+      const newQuestions: MatchingQuestion[] = content.matchingSets.map((set: any) => ({
+        id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+        text: set.title || 'Match the following items',
+        pairs: set.correctPairs ? set.correctPairs.map((pair: any, index: number) => {
+          const leftItem = set.leftItems?.find((item: any) => item.id === pair.leftId);
+          const rightItem = set.rightItems?.find((item: any) => item.id === pair.rightId);
+          return {
+            id: `pair_${Date.now()}_${index}`,
+            left: leftItem?.text || `Item ${index + 1}`,
+            right: rightItem?.text || `Match ${index + 1}`
+          };
+        }) : [],
+        explanation: set.explanation || '',
+        hint: '',
+        points: 1
+      }));
+
+      // Add the new questions to the activity
+      updateActivity({
+        questions: [...localActivity.questions, ...newQuestions]
+      });
     }
   };
 
@@ -333,15 +362,33 @@ export const MatchingEditor: React.FC<MatchingEditorProps> = ({
             </div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Questions</h2>
           </div>
-          <ActivityButton
-            onClick={handleAddQuestion}
-            variant="success"
-            icon="plus"
-            ariaLabel="Add new question"
-            className="transition-transform hover:scale-105 active:scale-95"
-          >
-            Add Question
-          </ActivityButton>
+          <div className="flex gap-2">
+            <ActivityButton
+              onClick={handleAddQuestion}
+              variant="success"
+              icon="plus"
+              ariaLabel="Add new question"
+              className="transition-transform hover:scale-105 active:scale-95"
+            >
+              Add Question
+            </ActivityButton>
+          </div>
+        </div>
+
+        {/* AI Matching Generator */}
+        <div className="mb-6">
+          <AIActivityGeneratorButton
+            activityType="matching"
+            activityTitle={localActivity.title}
+            selectedTopics={[localActivity.title]}
+            selectedLearningOutcomes={[localActivity.description || 'Match related items']}
+            selectedBloomsLevel={BloomsTaxonomyLevel.UNDERSTAND}
+            selectedActionVerbs={['match', 'connect', 'associate', 'relate']}
+            onContentGenerated={handleAIContentGenerated}
+            onError={(error) => {
+              console.error('AI Content Generation Error:', error);
+            }}
+          />
         </div>
 
         <div className="space-y-6">

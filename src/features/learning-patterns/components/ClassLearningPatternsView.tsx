@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/trpc/react';
-import { Zap, TrendingUp, AlertTriangle, Target, Users, Clock, ArrowLeft } from 'lucide-react';
+import { Zap, TrendingUp, AlertTriangle, Target, Users, Clock, ChevronLeft } from 'lucide-react';
 import { StudentLearningProfile } from './StudentLearningProfile';
 import { AdaptiveRecommendations } from './AdaptiveRecommendations';
 import { EarlyWarningSystem } from './EarlyWarningSystem';
@@ -77,7 +77,7 @@ export function ClassLearningPatternsView({
               href={`/teacher/classes/${classId}`}
               className="text-muted-foreground hover:text-foreground"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ChevronLeft className="h-4 w-4" />
             </Link>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Zap className="h-6 w-6 text-primary" />
@@ -178,7 +178,7 @@ export function ClassLearningPatternsView({
                 <StudentLearningProfile
                   key={student.studentId}
                   studentId={student.studentId}
-                  studentName={student.studentName}
+                  studentName={student.studentName || 'Unknown Student'}
                   profile={student.patterns}
                   classId={classId}
                 />
@@ -196,9 +196,12 @@ export function ClassLearningPatternsView({
         </TabsContent>
 
         <TabsContent value="recommendations" className="space-y-4">
-          <AdaptiveRecommendations 
+          <AdaptiveRecommendations
             classId={classId}
-            studentPatterns={patterns?.studentPatterns || []}
+            studentPatterns={patterns?.studentPatterns?.map(student => ({
+              ...student,
+              studentName: student.studentName || 'Unknown Student'
+            })) || []}
           />
         </TabsContent>
 

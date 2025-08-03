@@ -47,6 +47,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { StudentTimeWidget } from '@/components/analytics/StudentTimeWidget';
 
 interface Student {
   id: string;
@@ -253,6 +254,14 @@ export function EnhancedStudentGrid({ classId, className }: EnhancedStudentGridP
                       </div>
                       <Progress value={student.averageScore || 0} className="h-2" />
                     </div>
+
+                    {/* Time Tracking Widget */}
+                    <StudentTimeWidget
+                      studentId={student.id}
+                      classId={classId}
+                      timeframe="month"
+                      compact={true}
+                    />
                   </div>
                 </CardContent>
                 <CardFooter>

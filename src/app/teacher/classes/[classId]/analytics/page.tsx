@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, BarChart, Lightbulb, LineChart, Users } from 'lucide-react';
+import { AlertCircle, BarChart, Lightbulb, LineChart, Users, Clock } from 'lucide-react';
+import { ClassTimeAnalytics } from '@/components/analytics/ClassTimeAnalytics';
 
 export default function ClassAnalyticsPage() {
   const params = useParams();
-  const classId = params.classId as string;
+  const classId = params?.classId as string;
   const { data: session, status } = useSession();
   const router = useRouter();
   
@@ -25,7 +26,7 @@ export default function ClassAnalyticsPage() {
 
   // Get teacher ID
   const { data: teacher, isLoading: isLoadingTeacher } = api.teacher.getTeacherById.useQuery(
-    { userId: session?.user?.id || '' },
+    { id: session?.user?.id || '' },
     { enabled: !!session?.user?.id }
   );
   
@@ -162,51 +163,37 @@ export default function ClassAnalyticsPage() {
         <Card className="hover:shadow-md transition-shadow">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Users className="mr-2 h-5 w-5" />
-              Student Engagement
+              <Clock className="mr-2 h-5 w-5" />
+              Learning Time Analytics
             </CardTitle>
             <CardDescription>
-              Participation and engagement analytics
+              Time investment and learning efficiency metrics
             </CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Monitor student engagement with learning materials and activities.
-              Track participation trends and identify disengaged students.
+              Track how students spend time on learning activities.
+              Analyze time investment patterns and learning efficiency.
             </p>
           </CardContent>
           <CardFooter>
-            <Button 
-              onClick={() => navigateToAnalytics('engagement')}
+            <Button
+              onClick={() => {
+                // Scroll to time analytics section
+                document.getElementById('time-analytics')?.scrollIntoView({ behavior: 'smooth' });
+              }}
               className="w-full"
-              disabled
             >
-              Coming Soon
+              View Time Analytics
             </Button>
           </CardFooter>
         </Card>
       </div>
       
-      <Card>
-        <CardHeader>
-          <CardTitle>Analytics Overview</CardTitle>
-          <CardDescription>
-            Summary of key metrics for {classDetails.name}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center p-12 text-center">
-            <div className="text-muted-foreground">
-              <LineChart className="h-16 w-16 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-medium mb-2">Analytics Dashboard Coming Soon</h3>
-              <p>
-                We're working on a comprehensive analytics dashboard for your class.
-                In the meantime, you can explore Bloom's Taxonomy analytics above.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Time Analytics Section */}
+      <div id="time-analytics">
+        <ClassTimeAnalytics classId={classId} timeframe="month" />
+      </div>
     </div>
   );
 }

@@ -8,6 +8,8 @@ import { MediaUploader } from '../ui/MediaUploader';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { cn } from '@/lib/utils';
 import { AlertCircle, Check, Edit, Eye } from 'lucide-react';
+import { AIActivityGeneratorButton } from '@/features/ai-question-generator/components/AIActivityGeneratorButton';
+import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 // Custom Info icon
 const Info = (props: React.SVGProps<SVGSVGElement>) => (
@@ -270,6 +272,34 @@ export const DragTheWordsEditor: React.FC<DragTheWordsEditorProps> = ({
     );
   };
 
+  // Handle AI-generated content
+  const handleAIContentGenerated = (content: any) => {
+    if (content.passages && Array.isArray(content.passages)) {
+      const newQuestions: DragTheWordsQuestion[] = content.passages.map((passage: any) => ({
+        id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+        text: passage.text,
+        words: passage.wordBank ? passage.wordBank.map((word: string, index: number) => ({
+          id: `word_${Date.now()}_${index}`,
+          text: word,
+          isCorrect: passage.missingWords?.some((missing: any) => missing.correctWord === word) || false
+        })) : [],
+        explanation: passage.explanation || '',
+        hint: '',
+        points: 1
+      }));
+
+      // Add the new questions to the activity
+      updateActivity({
+        questions: [...localActivity.questions, ...newQuestions]
+      });
+
+      // Update current question index to show the first new question
+      if (newQuestions.length > 0) {
+        setCurrentQuestionIndex(localActivity.questions.length);
+      }
+    }
+  };
+
   return (
     <ThemeWrapper className={cn("w-full", className)}>
       <div className="mb-6 p-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
@@ -488,13 +518,31 @@ export const DragTheWordsEditor: React.FC<DragTheWordsEditorProps> = ({
             )}
           </ActivityButton>
 
-          <ActivityButton
-            onClick={handleAddQuestion}
-            variant="secondary"
-            icon="plus"
-          >
-            Add Question
-          </ActivityButton>
+          <div className="flex gap-2">
+            <ActivityButton
+              onClick={handleAddQuestion}
+              variant="secondary"
+              icon="plus"
+            >
+              Add Question
+            </ActivityButton>
+          </div>
+        </div>
+
+        {/* AI Drag the Words Generator */}
+        <div className="mb-6">
+          <AIActivityGeneratorButton
+            activityType="drag-the-words"
+            activityTitle={localActivity.title}
+            selectedTopics={[localActivity.title]}
+            selectedLearningOutcomes={[localActivity.description || 'Complete text by dragging words']}
+            selectedBloomsLevel={BloomsTaxonomyLevel.UNDERSTAND}
+            selectedActionVerbs={['complete', 'fill', 'drag', 'place']}
+            onContentGenerated={handleAIContentGenerated}
+            onError={(error) => {
+              console.error('AI Content Generation Error:', error);
+            }}
+          />
         </div>
       </div>
 

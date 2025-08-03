@@ -12,6 +12,8 @@ import { ThemeWrapper } from '../ui/ThemeWrapper';
 
 import { cn } from '@/lib/utils';
 import { useResponsive } from '@/lib/hooks/use-responsive';
+import { AIActivityGeneratorButton } from '@/features/ai-question-generator/components/AIActivityGeneratorButton';
+import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 export interface TrueFalseEditorProps {
   activity: TrueFalseActivity;
@@ -100,6 +102,25 @@ export const TrueFalseEditor: React.FC<TrueFalseEditorProps> = ({
     const newQuestions = [...localActivity.questions];
     newQuestions[index] = updatedQuestion;
     updateActivity({ questions: newQuestions });
+  };
+
+  // Handle AI-generated content
+  const handleAIContentGenerated = (content: any) => {
+    if (content.questions && Array.isArray(content.questions)) {
+      const newQuestions: TrueFalseQuestion[] = content.questions.map((q: any) => ({
+        id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+        text: q.text,
+        isTrue: q.isTrue,
+        explanation: q.explanation || '',
+        hint: q.hint || '',
+        points: q.points || 1
+      }));
+
+      // Add the new questions to the activity
+      updateActivity({
+        questions: [...localActivity.questions, ...newQuestions]
+      });
+    }
   };
 
 
@@ -209,13 +230,31 @@ export const TrueFalseEditor: React.FC<TrueFalseEditorProps> = ({
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Statements</h2>
-          <ActivityButton
-            onClick={handleAddQuestion}
-            variant="success"
-            icon="plus"
-          >
-            Add Statement
-          </ActivityButton>
+          <div className="flex gap-2">
+            <ActivityButton
+              onClick={handleAddQuestion}
+              variant="success"
+              icon="plus"
+            >
+              Add Statement
+            </ActivityButton>
+          </div>
+        </div>
+
+        {/* AI Statement Generator */}
+        <div className="mb-6">
+          <AIActivityGeneratorButton
+            activityType="true-false"
+            activityTitle={localActivity.title}
+            selectedTopics={[localActivity.title]}
+            selectedLearningOutcomes={[localActivity.description || 'Evaluate true/false statements']}
+            selectedBloomsLevel={BloomsTaxonomyLevel.UNDERSTAND}
+            selectedActionVerbs={['evaluate', 'identify', 'determine', 'assess']}
+            onContentGenerated={handleAIContentGenerated}
+            onError={(error) => {
+              console.error('AI Content Generation Error:', error);
+            }}
+          />
         </div>
 
         <AnimatePresence>

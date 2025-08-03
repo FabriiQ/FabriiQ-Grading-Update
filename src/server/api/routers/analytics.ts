@@ -8,6 +8,7 @@ import {
   PerformanceQueryParams
 } from "../models/unified-performance-models";
 import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
+import { ClassReportsAnalyticsService } from "../services/class-reports-analytics.service";
 
 // Define analytics event schema
 const trackEventSchema = z.object({
@@ -1625,6 +1626,93 @@ export const analyticsRouter = createTRPCRouter({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to mark alert as read',
           cause: error,
+        });
+      }
+    }),
+
+  // Get comprehensive class report data
+  getClassReport: protectedProcedure
+    .input(z.object({
+      classId: z.string(),
+      period: z.enum(['daily', 'weekly', 'monthly']).default('weekly'),
+    }))
+    .query(async ({ ctx, input }) => {
+      const { classId, period } = input;
+
+      try {
+        const reportsService = new ClassReportsAnalyticsService(ctx.prisma);
+        return await reportsService.generateClassReport(classId, period);
+      } catch (error) {
+        console.error('Error fetching class report:', error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch class report",
+        });
+      }
+    }),
+
+  // Get class analytics for reports
+  getClassAnalytics: protectedProcedure
+    .input(z.object({
+      classId: z.string(),
+      period: z.enum(['daily', 'weekly', 'monthly']).default('weekly'),
+    }))
+    .query(async ({ ctx, input }) => {
+      const { classId, period } = input;
+
+      try {
+        const reportsService = new ClassReportsAnalyticsService(ctx.prisma);
+        const reportData = await reportsService.generateClassReport(classId, period);
+        return reportData.analytics;
+      } catch (error) {
+        console.error('Error fetching class analytics:', error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch class analytics",
+        });
+      }
+    }),
+
+  // Get class performance data for reports
+  getClassPerformanceReport: protectedProcedure
+    .input(z.object({
+      classId: z.string(),
+      period: z.enum(['daily', 'weekly', 'monthly']).default('weekly'),
+    }))
+    .query(async ({ ctx, input }) => {
+      const { classId, period } = input;
+
+      try {
+        const reportsService = new ClassReportsAnalyticsService(ctx.prisma);
+        const reportData = await reportsService.generateClassReport(classId, period);
+        return reportData.performance;
+      } catch (error) {
+        console.error('Error fetching class performance:', error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch class performance",
+        });
+      }
+    }),
+
+  // Get class engagement data for reports
+  getClassEngagement: protectedProcedure
+    .input(z.object({
+      classId: z.string(),
+      period: z.enum(['daily', 'weekly', 'monthly']).default('weekly'),
+    }))
+    .query(async ({ ctx, input }) => {
+      const { classId, period } = input;
+
+      try {
+        const reportsService = new ClassReportsAnalyticsService(ctx.prisma);
+        const reportData = await reportsService.generateClassReport(classId, period);
+        return reportData.engagement;
+      } catch (error) {
+        console.error('Error fetching class engagement:', error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to fetch class engagement",
         });
       }
     }),

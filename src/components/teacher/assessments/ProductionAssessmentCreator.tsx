@@ -45,6 +45,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { api } from '@/trpc/react';
+import { AIQuestionGeneratorButton, GeneratedQuestionsManager, GeneratedQuestion } from '@/features/ai-question-generator/components';
 import {
   AssessmentCategory,
   GradingType,
@@ -681,6 +682,8 @@ interface QuestionsStepProps {
 
 function QuestionsStep({ form, selectedCategory, onBack, onNext }: QuestionsStepProps) {
   const questions = form.watch('questions') || [];
+  const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestion[]>([]);
+  const [showGeneratedQuestions, setShowGeneratedQuestions] = useState(false);
 
   const requiresQuestions = [
     AssessmentCategory.QUIZ,
@@ -743,6 +746,33 @@ function QuestionsStep({ form, selectedCategory, onBack, onNext }: QuestionsStep
       [field]: value,
     };
     form.setValue('questions', updatedQuestions);
+  };
+
+  // Handle AI-generated questions
+  const handleQuestionsGenerated = (aiQuestions: GeneratedQuestion[]) => {
+    setGeneratedQuestions(aiQuestions);
+    setShowGeneratedQuestions(true);
+  };
+
+  const handleAddGeneratedQuestions = (selectedQuestions: GeneratedQuestion[]) => {
+    const newQuestions = selectedQuestions.map((q, index) => ({
+      id: `ai_${Date.now()}_${index}`,
+      text: q.question,
+      type: q.type.toUpperCase().replace('-', '_') as 'MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'SHORT_ANSWER' | 'ESSAY',
+      points: q.points || 10,
+      bloomsLevel: q.bloomsLevel,
+      options: q.options ? q.options.map((option, optIndex) => ({
+        id: `opt_${Date.now()}_${index}_${optIndex}`,
+        text: option,
+        isCorrect: option === q.correctAnswer
+      })) : [
+        { id: `opt_${Date.now()}_${index}_1`, text: '', isCorrect: false },
+        { id: `opt_${Date.now()}_${index}_2`, text: '', isCorrect: false },
+      ],
+    }));
+
+    form.setValue('questions', [...questions, ...newQuestions]);
+    setShowGeneratedQuestions(false);
   };
 
   return (
@@ -907,6 +937,31 @@ function QuestionsStep({ form, selectedCategory, onBack, onNext }: QuestionsStep
           ))}
         </div>
 
+        {/* AI Question Generator */}
+        <div className="space-y-4">
+          <AIQuestionGeneratorButton
+            selectedTopics={[]} // TODO: Get from form context
+            selectedLearningOutcomes={[]} // TODO: Get from form context
+            selectedBloomsLevel={form.watch('bloomsLevel')}
+            selectedActionVerbs={[]}
+            subject={''} // TODO: Get from form context
+            gradeLevel={''}
+            onQuestionsGenerated={handleQuestionsGenerated}
+            onError={(error) => {
+              console.error('AI Question Generation Error:', error);
+            }}
+          />
+
+          {showGeneratedQuestions && generatedQuestions.length > 0 && (
+            <GeneratedQuestionsManager
+              questions={generatedQuestions}
+              onQuestionsUpdated={setGeneratedQuestions}
+              onCreateNewQuestions={handleAddGeneratedQuestions}
+              showQuestionBankOption={false}
+            />
+          )}
+        </div>
+
         {/* Add Question Button */}
         <Button
           type="button"
@@ -915,7 +970,7 @@ function QuestionsStep({ form, selectedCategory, onBack, onNext }: QuestionsStep
           className="w-full"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Add Question
+          Add Question Manually
         </Button>
 
         {/* Navigation */}

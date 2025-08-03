@@ -23,6 +23,8 @@ import { QuestionBankSelector } from '../question-bank/QuestionBankSelector';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { BookOpen } from 'lucide-react';
+import { AIActivityGeneratorButton } from '@/features/ai-question-generator/components/AIActivityGeneratorButton';
+import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 export interface QuizEditorProps {
   activity?: QuizActivity;
@@ -380,6 +382,62 @@ export const QuizEditor: React.FC<QuizEditorProps> = ({
     }
   };
 
+  // Handle AI-generated content
+  const handleAIContentGenerated = (content: any) => {
+    if (content.questions && Array.isArray(content.questions)) {
+      const newQuestions: QuizQuestion[] = content.questions.map((q: any) => {
+        const baseQuestion = {
+          id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+          text: q.text,
+          explanation: q.explanation || '',
+          hint: q.hint || '',
+          points: q.points || 1
+        };
+
+        // Convert based on question type
+        switch (q.type) {
+          case 'multiple-choice':
+            return {
+              ...baseQuestion,
+              type: 'multiple-choice' as QuizQuestionType,
+              options: q.options ? q.options.map((opt: any, index: number) => ({
+                id: `opt_${Date.now()}_${index}`,
+                text: opt.text || opt,
+                isCorrect: opt.isCorrect || opt === q.correctAnswer
+              })) : []
+            };
+          case 'true-false':
+            return {
+              ...baseQuestion,
+              type: 'true-false' as QuizQuestionType,
+              isTrue: q.isTrue !== undefined ? q.isTrue : q.correctAnswer === 'true'
+            };
+          default:
+            // Default to multiple choice
+            return {
+              ...baseQuestion,
+              type: 'multiple-choice' as QuizQuestionType,
+              options: q.options ? q.options.map((opt: any, index: number) => ({
+                id: `opt_${Date.now()}_${index}`,
+                text: opt.text || opt,
+                isCorrect: opt.isCorrect || opt === q.correctAnswer
+              })) : []
+            };
+        }
+      });
+
+      // Add the new questions to the activity
+      updateActivity({
+        questions: [...localActivity.questions, ...newQuestions]
+      });
+
+      // Update current question index to show the first new question
+      if (newQuestions.length > 0) {
+        setCurrentQuestionIndex(localActivity.questions.length);
+      }
+    }
+  };
+
   return (
     <ThemeWrapper className={cn("w-full", className)}>
       <div className="mb-6 p-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
@@ -665,6 +723,22 @@ export const QuizEditor: React.FC<QuizEditorProps> = ({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* AI Quiz Generator */}
+      <div className="mb-6">
+        <AIActivityGeneratorButton
+          activityType="quiz"
+          activityTitle={localActivity.title}
+          selectedTopics={[localActivity.title]}
+          selectedLearningOutcomes={[localActivity.description || 'Answer mixed question types in a quiz']}
+          selectedBloomsLevel={BloomsTaxonomyLevel.UNDERSTAND}
+          selectedActionVerbs={['answer', 'solve', 'identify', 'analyze']}
+          onContentGenerated={handleAIContentGenerated}
+          onError={(error) => {
+            console.error('AI Content Generation Error:', error);
+          }}
+        />
       </div>
 
       {/* Question editor */}

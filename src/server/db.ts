@@ -149,14 +149,14 @@ function getDatabaseUrlWithPooling(): string {
   // Parse existing URL to check if pooling parameters are already present
   const url = new URL(baseUrl);
 
-  // Production-optimized connection pooling parameters for thousands of users
+  // Production-optimized connection pooling parameters for login performance
   const poolingParams = {
-    'connection_limit': process.env.DATABASE_CONNECTION_LIMIT || '50',    // Increased for high load
-    'pool_timeout': process.env.DATABASE_POOL_TIMEOUT || '5',             // Faster timeout
-    'connect_timeout': process.env.DATABASE_CONNECT_TIMEOUT || '30',      // Reduced connect timeout
-    'pool_max_idle_time': process.env.DATABASE_MAX_IDLE_TIME || '180',    // 3 minutes idle time
-    'statement_timeout': process.env.DATABASE_STATEMENT_TIMEOUT || '30000', // 30 second query timeout
-    'idle_in_transaction_session_timeout': '10000',                       // 10 second idle transaction timeout
+    'connection_limit': process.env.DATABASE_CONNECTION_LIMIT || '75',    // Increased for login concurrency
+    'pool_timeout': process.env.DATABASE_POOL_TIMEOUT || '3',             // Faster timeout for login
+    'connect_timeout': process.env.DATABASE_CONNECT_TIMEOUT || '15',      // Reduced connect timeout
+    'pool_max_idle_time': process.env.DATABASE_MAX_IDLE_TIME || '120',    // 2 minutes idle time
+    'statement_timeout': process.env.DATABASE_STATEMENT_TIMEOUT || '15000', // 15 second query timeout for login
+    'idle_in_transaction_session_timeout': '5000',                        // 5 second idle transaction timeout
   };
 
   // Add connection pooling parameters if not already present

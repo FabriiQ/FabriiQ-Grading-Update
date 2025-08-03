@@ -1370,6 +1370,69 @@ export const teacherRouter = createTRPCRouter({
       return teacher;
     }),
 
+  // Get current teacher profile
+  getCurrentTeacher: protectedProcedure
+    .query(async ({ ctx }) => {
+      try {
+        // Ensure user is authenticated and is a teacher
+        if (!ctx.session?.user?.id || (ctx.session.user.userType !== UserType.CAMPUS_TEACHER && ctx.session.user.userType !== 'TEACHER')) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Not authorized",
+          });
+        }
+
+        // Get the teacher profile
+        const user = await ctx.prisma.user.findUnique({
+          where: { id: ctx.session.user.id },
+          include: { teacherProfile: true }
+        });
+
+        if (!user) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "User not found",
+          });
+        }
+
+        // If teacher profile doesn't exist, create one
+        if (!user.teacherProfile) {
+          const teacherProfile = await ctx.prisma.teacherProfile.create({
+            data: {
+              userId: user.id,
+              specialization: null,
+              qualifications: [],
+              certifications: [],
+              experience: [],
+              expertise: [],
+              publications: [],
+              achievements: []
+            }
+          });
+
+          return {
+            ...teacherProfile,
+            user: user
+          };
+        }
+
+        return {
+          ...user.teacherProfile,
+          user: user
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to get current teacher",
+          cause: error,
+        });
+      }
+    }),
+
   // Get classes assigned to a teacher
   getTeacherClasses: protectedProcedure
     .input(z.object({

@@ -16,6 +16,8 @@ import { ActivityButton } from '../ui/ActivityButton';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
+import { AIActivityGeneratorButton } from '@/features/ai-question-generator/components/AIActivityGeneratorButton';
+import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 export interface VideoEditorProps {
   activity?: VideoActivity;
@@ -302,6 +304,35 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({
     );
   };
 
+  // Handle AI-generated content
+  const handleAIContentGenerated = (content: any) => {
+    if (content.videoActivities && Array.isArray(content.videoActivities)) {
+      const videoActivity = content.videoActivities[0]; // Take the first generated activity
+
+      if (videoActivity) {
+        // Update activity with AI-generated discussion questions and key points
+        const updatedActivity = {
+          ...localActivity,
+          description: videoActivity.description || localActivity.description,
+          keyPoints: videoActivity.keyPoints || [],
+          discussionQuestions: videoActivity.discussionQuestions ? videoActivity.discussionQuestions.map((q: any, index: number) => ({
+            id: `dq_${Date.now()}_${index}`,
+            text: q.text,
+            type: q.type || 'open-ended',
+            timestamp: null, // No specific timestamp for general discussion
+            points: 1
+          })) : [],
+          followUpActivities: videoActivity.followUpActivities || []
+        };
+
+        updateActivity(updatedActivity);
+
+        // Show success message if available
+        console.log('AI-generated video activity content applied successfully');
+      }
+    }
+  };
+
   return (
     <ThemeWrapper className={cn("w-full", className)}>
       <div className="mb-6 p-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
@@ -474,6 +505,22 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* AI Video Activity Generator */}
+      <div className="mb-6">
+        <AIActivityGeneratorButton
+          activityType="video"
+          activityTitle={localActivity.title}
+          selectedTopics={[localActivity.title]}
+          selectedLearningOutcomes={[localActivity.description || 'Watch and discuss video content']}
+          selectedBloomsLevel={BloomsTaxonomyLevel.ANALYZE}
+          selectedActionVerbs={['analyze', 'discuss', 'evaluate', 'reflect']}
+          onContentGenerated={handleAIContentGenerated}
+          onError={(error) => {
+            console.error('AI Content Generation Error:', error);
+          }}
+        />
       </div>
 
       <div className="mb-4 flex items-center justify-between">

@@ -17,6 +17,8 @@ import { ThemeWrapper } from '../ui/ThemeWrapper';
 
 import { cn } from '@/lib/utils';
 import { useResponsive } from '@/lib/hooks/use-responsive';
+import { AIQuestionGeneratorButton, GeneratedQuestionsManager, GeneratedQuestion } from '@/features/ai-question-generator/components';
+import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 export interface MultipleChoiceEditorProps {
   activity: MultipleChoiceActivity;
@@ -48,6 +50,10 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({
   const [localActivity, setLocalActivity] = useState<MultipleChoiceActivity>(activity);
   const [lastAddedQuestionId, setLastAddedQuestionId] = useState<string | null>(null);
   const [lastAddedOptionId, setLastAddedOptionId] = useState<{questionId: string, optionId: string} | null>(null);
+
+  // AI Question Generator state
+  const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestion[]>([]);
+  const [showGeneratedQuestions, setShowGeneratedQuestions] = useState(false);
 
   // Update the local activity and call onChange with debounce
   const updateActivity = useCallback((updates: Partial<MultipleChoiceActivity>) => {
@@ -99,6 +105,49 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({
     const newQuestions = [...localActivity.questions];
     newQuestions.splice(index, 1);
     updateActivity({ questions: newQuestions });
+  };
+
+  // Handle AI-generated questions
+  const handleQuestionsGenerated = (aiQuestions: GeneratedQuestion[]) => {
+    setGeneratedQuestions(aiQuestions);
+    setShowGeneratedQuestions(true);
+  };
+
+  const handleAddGeneratedQuestions = (selectedQuestions: GeneratedQuestion[]) => {
+    const newQuestions: MultipleChoiceQuestion[] = selectedQuestions.map((q) => {
+      const questionId = `ai_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+
+      // Convert AI question to MultipleChoiceQuestion format
+      const options: MultipleChoiceOption[] = q.options ?
+        q.options.map((option, index) => ({
+          id: `${questionId}_opt_${index}`,
+          text: option,
+          isCorrect: option === q.correctAnswer,
+          feedback: option === q.correctAnswer ? 'Correct!' : 'Incorrect.'
+        })) :
+        [
+          { id: `${questionId}_opt_0`, text: 'Option 1', isCorrect: true, feedback: 'Correct!' },
+          { id: `${questionId}_opt_1`, text: 'Option 2', isCorrect: false, feedback: 'Incorrect.' }
+        ];
+
+      return {
+        id: questionId,
+        text: q.question,
+        options,
+        explanation: q.explanation || '',
+        hint: `This question tests ${q.bloomsLevel} level thinking.`,
+        points: q.points || 1
+      };
+    });
+
+    // Add the new questions to the activity
+    updateActivity({
+      questions: [...localActivity.questions, ...newQuestions]
+    });
+
+    // Hide the generated questions manager
+    setShowGeneratedQuestions(false);
+    setGeneratedQuestions([]);
   };
 
   // Update a question
@@ -228,13 +277,40 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Questions</h2>
-          <ActivityButton
-            onClick={handleAddQuestion}
-            variant="success"
-            icon="plus"
-          >
-            Add Question
-          </ActivityButton>
+          <div className="flex gap-2">
+            <ActivityButton
+              onClick={handleAddQuestion}
+              variant="success"
+              icon="plus"
+            >
+              Add Question
+            </ActivityButton>
+          </div>
+        </div>
+
+        {/* AI Question Generator */}
+        <div className="mb-6 space-y-4">
+          <AIQuestionGeneratorButton
+            selectedTopics={[localActivity.title]} // Use activity title as topic
+            selectedLearningOutcomes={[localActivity.description || 'Complete the multiple choice questions']}
+            selectedBloomsLevel={BloomsTaxonomyLevel.UNDERSTAND}
+            selectedActionVerbs={['identify', 'select', 'choose', 'recognize']}
+            subject=""
+            gradeLevel=""
+            onQuestionsGenerated={handleQuestionsGenerated}
+            onError={(error) => {
+              console.error('AI Question Generation Error:', error);
+            }}
+          />
+
+          {showGeneratedQuestions && generatedQuestions.length > 0 && (
+            <GeneratedQuestionsManager
+              questions={generatedQuestions}
+              onQuestionsUpdated={setGeneratedQuestions}
+              onCreateNewQuestions={handleAddGeneratedQuestions}
+              showQuestionBankOption={false}
+            />
+          )}
         </div>
 
         <AnimatePresence>

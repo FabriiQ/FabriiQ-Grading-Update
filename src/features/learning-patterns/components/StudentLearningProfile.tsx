@@ -8,8 +8,6 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
   Eye,
-  Volume2,
-  MousePointer,
   BookOpen,
   Clock,
   TrendingUp,
@@ -20,6 +18,7 @@ import {
   Users,
   User
 } from 'lucide-react';
+import { Volume2, MousePointer } from '@/components/ui/icons-fix';
 
 interface StudentLearningProfileProps {
   studentId: string;

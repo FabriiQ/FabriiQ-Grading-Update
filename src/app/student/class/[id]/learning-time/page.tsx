@@ -3,7 +3,8 @@
 import { useParams } from 'next/navigation';
 import { Clock, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { LearningTimeAnalytics } from '@/components/student/LearningTimeAnalytics';
+import { LearningTimeAnalytics } from '@/components/analytics/LearningTimeAnalytics';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { api } from '@/trpc/react';
 
@@ -13,7 +14,8 @@ import { api } from '@/trpc/react';
 export default function LearningTimePage() {
   const params = useParams();
   const classId = params?.id as string || "";
-  
+  const { data: session } = useSession();
+
   // Fetch class details
   const { data: classData } = api.student.getClassDetails.useQuery(
     { classId },
@@ -58,7 +60,14 @@ export default function LearningTimePage() {
       
       {/* Main content */}
       <div className="grid grid-cols-1 gap-6">
-        <LearningTimeAnalytics classId={classId} />
+        {session?.user?.id && (
+          <LearningTimeAnalytics
+            studentId={session.user.id}
+            classId={classId}
+            timeframe="month"
+            showComparison={false}
+          />
+        )}
         
         {/* Learning time insights */}
         <div className="bg-muted/30 p-6 rounded-lg">

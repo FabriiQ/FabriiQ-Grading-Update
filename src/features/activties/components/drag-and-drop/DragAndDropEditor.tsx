@@ -8,6 +8,8 @@ import { MediaUploader } from '../ui/MediaUploader';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { cn } from '@/lib/utils';
 import { ArrowUp, ArrowDown, Plus, Trash2 } from 'lucide-react';
+import { AIActivityGeneratorButton } from '@/features/ai-question-generator/components/AIActivityGeneratorButton';
+import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 // Custom GripVertical icon
 const GripVertical = (props: React.SVGProps<SVGSVGElement>) => (
@@ -392,7 +394,41 @@ export const DragAndDropEditor: React.FC<DragAndDropEditorProps> = ({
     }, 1000);
   };
 
+  // Handle AI-generated content
+  const handleAIContentGenerated = (content: any) => {
+    if (content.dragDropSets && Array.isArray(content.dragDropSets)) {
+      const newQuestions: DragAndDropQuestion[] = content.dragDropSets.map((set: any) => ({
+        id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+        text: set.title || 'Drag items to the correct zones',
+        items: set.draggableItems ? set.draggableItems.map((item: any, index: number) => ({
+          id: item.id || `item_${Date.now()}_${index}`,
+          text: item.text,
+          correctZoneId: item.correctDropZoneId || 'zone_1',
+          feedback: `Feedback for ${item.text}`,
+          media: item.media || null
+        })) : [],
+        zones: set.dropZones ? set.dropZones.map((zone: any, index: number) => ({
+          id: zone.id || `zone_${Date.now()}_${index}`,
+          label: zone.label,
+          acceptsMultiple: zone.acceptsMultiple || false,
+          feedback: `Correct! This zone is for ${zone.label}`
+        })) : [],
+        explanation: set.explanation || '',
+        hint: '',
+        points: 1
+      }));
 
+      // Add the new questions to the activity
+      updateActivity({
+        questions: [...localActivity.questions, ...newQuestions]
+      });
+
+      // Update current question index to show the first new question
+      if (newQuestions.length > 0) {
+        setCurrentQuestionIndex(localActivity.questions.length);
+      }
+    }
+  };
 
   return (
     <ThemeWrapper className={cn("w-full", className)}>
@@ -611,15 +647,33 @@ export const DragAndDropEditor: React.FC<DragAndDropEditorProps> = ({
             </ActivityButton>
           </div>
 
-          <ActivityButton
-            onClick={handleAddQuestion}
-            variant="success"
-            icon="plus"
-            className="transition-transform hover:scale-105 active:scale-95"
-            ariaLabel="Add new question"
-          >
-            Add Question
-          </ActivityButton>
+          <div className="flex gap-2">
+            <ActivityButton
+              onClick={handleAddQuestion}
+              variant="success"
+              icon="plus"
+              className="transition-transform hover:scale-105 active:scale-95"
+              ariaLabel="Add new question"
+            >
+              Add Question
+            </ActivityButton>
+          </div>
+        </div>
+
+        {/* AI Drag and Drop Generator */}
+        <div className="mb-6">
+          <AIActivityGeneratorButton
+            activityType="drag-and-drop"
+            activityTitle={localActivity.title}
+            selectedTopics={[localActivity.title]}
+            selectedLearningOutcomes={[localActivity.description || 'Drag items to correct zones']}
+            selectedBloomsLevel={BloomsTaxonomyLevel.UNDERSTAND}
+            selectedActionVerbs={['categorize', 'classify', 'sort', 'organize']}
+            onContentGenerated={handleAIContentGenerated}
+            onError={(error) => {
+              console.error('AI Content Generation Error:', error);
+            }}
+          />
         </div>
 
         {localActivity.questions.length === 0 && (

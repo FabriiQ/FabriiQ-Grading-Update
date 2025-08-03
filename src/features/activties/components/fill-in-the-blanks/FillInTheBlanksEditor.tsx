@@ -15,6 +15,8 @@ import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { cn } from '@/lib/utils';
 import { generateId } from '../../models/base';
 import { useResponsive } from '@/lib/hooks/use-responsive';
+import { AIActivityGeneratorButton } from '@/features/ai-question-generator/components/AIActivityGeneratorButton';
+import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 export interface FillInTheBlanksEditorProps {
   activity: FillInTheBlanksActivity;
@@ -124,6 +126,31 @@ export const FillInTheBlanksEditor: React.FC<FillInTheBlanksEditorProps> = ({
           setIsSaving(false);
         }, 500);
       }
+    }
+  };
+
+  // Handle AI-generated content
+  const handleAIContentGenerated = (content: any) => {
+    if (content.passages && Array.isArray(content.passages)) {
+      const newQuestions: FillInTheBlanksQuestion[] = content.passages.map((passage: any) => ({
+        id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+        text: passage.text,
+        blanks: passage.blanks ? passage.blanks.map((blank: any, index: number) => ({
+          id: blank.id || `blank_${Date.now()}_${index}`,
+          position: blank.position || index,
+          correctAnswers: Array.isArray(blank.correctAnswers) ? blank.correctAnswers : [blank.correctAnswers || ''],
+          caseSensitive: blank.caseSensitive || false,
+          hint: blank.hint || ''
+        })) : [],
+        explanation: passage.explanation || '',
+        hint: '',
+        points: 1
+      }));
+
+      // Add the new questions to the activity
+      updateActivity({
+        questions: [...localActivity.questions, ...newQuestions]
+      });
     }
   };
 
@@ -254,13 +281,31 @@ export const FillInTheBlanksEditor: React.FC<FillInTheBlanksEditorProps> = ({
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Questions</h2>
-          <ActivityButton
-            onClick={handleAddQuestion}
-            variant="success"
-            icon="plus"
-          >
-            Add Question
-          </ActivityButton>
+          <div className="flex gap-2">
+            <ActivityButton
+              onClick={handleAddQuestion}
+              variant="success"
+              icon="plus"
+            >
+              Add Question
+            </ActivityButton>
+          </div>
+        </div>
+
+        {/* AI Passage Generator */}
+        <div className="mb-6">
+          <AIActivityGeneratorButton
+            activityType="fill-in-the-blanks"
+            activityTitle={localActivity.title}
+            selectedTopics={[localActivity.title]}
+            selectedLearningOutcomes={[localActivity.description || 'Complete fill-in-the-blank passages']}
+            selectedBloomsLevel={BloomsTaxonomyLevel.UNDERSTAND}
+            selectedActionVerbs={['complete', 'fill', 'identify', 'recall']}
+            onContentGenerated={handleAIContentGenerated}
+            onError={(error) => {
+              console.error('AI Content Generation Error:', error);
+            }}
+          />
         </div>
 
         <AnimatePresence>

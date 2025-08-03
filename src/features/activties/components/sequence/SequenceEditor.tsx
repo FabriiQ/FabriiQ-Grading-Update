@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils';
 import { generateId } from '../../models/base';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import { AIActivityGeneratorButton } from '@/features/ai-question-generator/components/AIActivityGeneratorButton';
+import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 // Custom GripVertical icon
 const GripVertical = (props: React.SVGProps<SVGSVGElement>) => (
@@ -177,6 +179,30 @@ export const SequenceEditor: React.FC<SequenceEditorProps> = ({
   const handleSave = () => {
     if (onSave) {
       onSave(localActivity);
+    }
+  };
+
+  // Handle AI-generated content
+  const handleAIContentGenerated = (content: any) => {
+    if (content.sequences && Array.isArray(content.sequences)) {
+      const newQuestions: SequenceQuestion[] = content.sequences.map((sequence: any) => ({
+        id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+        text: sequence.title || 'Arrange the following items in the correct order',
+        items: sequence.items ? sequence.items.map((item: any, index: number) => ({
+          id: item.id || `item_${Date.now()}_${index}`,
+          text: item.text,
+          correctPosition: item.correctPosition || index + 1,
+          media: item.media || null
+        })) : [],
+        explanation: sequence.explanation || '',
+        hint: '',
+        points: 1
+      }));
+
+      // Add the new questions to the activity
+      updateActivity({
+        questions: [...localActivity.questions, ...newQuestions]
+      });
     }
   };
 
@@ -353,15 +379,33 @@ export const SequenceEditor: React.FC<SequenceEditorProps> = ({
             </div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Questions</h2>
           </div>
-          <ActivityButton
-            onClick={handleAddQuestion}
-            variant="success"
-            icon="plus"
-            ariaLabel="Add new question"
-            className="transition-transform hover:scale-105 active:scale-95"
-          >
-            Add Question
-          </ActivityButton>
+          <div className="flex gap-2">
+            <ActivityButton
+              onClick={handleAddQuestion}
+              variant="success"
+              icon="plus"
+              ariaLabel="Add new question"
+              className="transition-transform hover:scale-105 active:scale-95"
+            >
+              Add Question
+            </ActivityButton>
+          </div>
+        </div>
+
+        {/* AI Sequence Generator */}
+        <div className="mb-6">
+          <AIActivityGeneratorButton
+            activityType="sequence"
+            activityTitle={localActivity.title}
+            selectedTopics={[localActivity.title]}
+            selectedLearningOutcomes={[localActivity.description || 'Arrange items in correct order']}
+            selectedBloomsLevel={BloomsTaxonomyLevel.UNDERSTAND}
+            selectedActionVerbs={['arrange', 'order', 'sequence', 'organize']}
+            onContentGenerated={handleAIContentGenerated}
+            onError={(error) => {
+              console.error('AI Content Generation Error:', error);
+            }}
+          />
         </div>
 
         <div className="space-y-6">

@@ -10,6 +10,8 @@ import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Check, AlertCircle, HelpCircle, Clock, FileText } from 'lucide-react';
+import { AIActivityGeneratorButton } from '@/features/ai-question-generator/components/AIActivityGeneratorButton';
+import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 export interface ReadingEditorProps {
   activity?: ReadingActivity;
@@ -216,6 +218,50 @@ export const ReadingEditor: React.FC<ReadingEditorProps> = ({
         {feedbackMessage.message}
       </motion.div>
     );
+  };
+
+  // Handle AI-generated content
+  const handleAIContentGenerated = (content: any) => {
+    if (content.passages && Array.isArray(content.passages)) {
+      const newSections: ReadingSection[] = content.passages.map((passage: any) => ({
+        id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+        title: passage.title || 'AI Generated Reading',
+        content: passage.content,
+        media: null,
+        comprehensionQuestions: passage.comprehensionQuestions ? passage.comprehensionQuestions.map((q: any, index: number) => ({
+          id: `q_${Date.now()}_${index}`,
+          text: q.text,
+          type: q.type || 'multiple-choice',
+          options: q.options || [],
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation || '',
+          points: 1
+        })) : [],
+        vocabulary: passage.vocabulary ? passage.vocabulary.map((v: any, index: number) => ({
+          id: `vocab_${Date.now()}_${index}`,
+          word: v.word,
+          definition: v.definition,
+          context: v.context || ''
+        })) : []
+      }));
+
+      // Add the new sections to the activity
+      updateActivity({
+        sections: [...localActivity.sections, ...newSections]
+      });
+
+      // Update current section index to show the first new section
+      if (newSections.length > 0) {
+        setCurrentSectionIndex(localActivity.sections.length);
+      }
+
+      // Show feedback
+      setFeedbackMessage({
+        type: 'success',
+        message: `Generated ${newSections.length} reading passage${newSections.length > 1 ? 's' : ''} with AI`
+      });
+      setTimeout(() => setFeedbackMessage(null), 3000);
+    }
   };
 
   return (
@@ -446,15 +492,33 @@ export const ReadingEditor: React.FC<ReadingEditorProps> = ({
               {previewMode ? "Edit" : "Preview"}
             </ActivityButton>
 
-            <ActivityButton
-              onClick={handleAddSection}
-              variant="secondary"
-              icon="plus"
-              ariaLabel="Add new section"
-            >
-              Add Section
-            </ActivityButton>
+            <div className="flex gap-2">
+              <ActivityButton
+                onClick={handleAddSection}
+                variant="secondary"
+                icon="plus"
+                ariaLabel="Add new section"
+              >
+                Add Section
+              </ActivityButton>
+            </div>
           </div>
+        </div>
+
+        {/* AI Reading Passage Generator */}
+        <div className="mb-6">
+          <AIActivityGeneratorButton
+            activityType="reading"
+            activityTitle={localActivity.title}
+            selectedTopics={[localActivity.title]}
+            selectedLearningOutcomes={[localActivity.description || 'Read and comprehend text passages']}
+            selectedBloomsLevel={BloomsTaxonomyLevel.UNDERSTAND}
+            selectedActionVerbs={['read', 'comprehend', 'analyze', 'interpret']}
+            onContentGenerated={handleAIContentGenerated}
+            onError={(error) => {
+              console.error('AI Content Generation Error:', error);
+            }}
+          />
         </div>
       </div>
 

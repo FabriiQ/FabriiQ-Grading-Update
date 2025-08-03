@@ -110,6 +110,9 @@ import { systemConfigRouter } from "./routers/system-config";
 // Social Wall Router
 import { socialWallRouter } from "./routers/social-wall";
 
+// AI Question Generator Router
+import { aiQuestionGeneratorRouter } from "./routers/ai-question-generator";
+
 /**
  * This is the primary router for your server.
  *
@@ -241,6 +244,9 @@ export const appRouter = createTRPCRouter({
 
   // Learning Patterns Router
   learningPatterns: learningPatternsRouter,
+
+  // AI Question Generator Router
+  aiQuestionGenerator: aiQuestionGeneratorRouter,
 });
 
 // export type definition of API

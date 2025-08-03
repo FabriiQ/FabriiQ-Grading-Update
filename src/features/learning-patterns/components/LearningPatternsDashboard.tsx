@@ -10,10 +10,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/trpc/react';
 import { Zap, TrendingUp, AlertTriangle, Target, Users, Clock } from 'lucide-react';
-import { StudentLearningProfile } from './StudentLearningProfile';
-import { ClassLearningInsights } from './ClassLearningInsights';
-import { AdaptiveRecommendations } from './AdaptiveRecommendations';
 import { EarlyWarningSystem } from './EarlyWarningSystem';
+import { ClassLearningInsights } from './ClassLearningInsights';
+import { StudentLearningProfile } from './StudentLearningProfile';
+import { AdaptiveRecommendations } from './AdaptiveRecommendations';
 
 interface LearningPatternsDashboardProps {
   teacherId: string;
@@ -68,7 +68,7 @@ export function LearningPatternsDashboard({
 
   if (insightsError) {
     return (
-      <Alert variant="destructive">
+      <Alert>
         <AlertTriangle className="h-4 w-4" />
         <AlertDescription>
           Failed to load learning patterns data: {insightsError.message}
@@ -189,8 +189,14 @@ export function LearningPatternsDashboard({
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <ClassLearningInsights 
-            insights={insights?.classInsights || []}
+          <ClassLearningInsights
+            insights={insights?.classInsights?.map(insight => ({
+              ...insight,
+              studentPatterns: insight.studentPatterns.map(student => ({
+                ...student,
+                studentName: student.studentName || 'Unknown Student'
+              }))
+            })) || []}
             isLoading={classPatternsLoading}
           />
         </TabsContent>
@@ -202,7 +208,7 @@ export function LearningPatternsDashboard({
                 <StudentLearningProfile
                   key={student.studentId}
                   studentId={student.studentId}
-                  studentName={student.studentName}
+                  studentName={student.studentName || 'Unknown Student'}
                   profile={student.patterns}
                 />
               ))}
@@ -221,7 +227,10 @@ export function LearningPatternsDashboard({
         <TabsContent value="recommendations" className="space-y-4">
           <AdaptiveRecommendations 
             classId={selectedClassId}
-            studentPatterns={classPatterns?.studentPatterns || []}
+            studentPatterns={classPatterns?.studentPatterns.map(student => ({
+              ...student,
+              studentName: student.studentName || 'Unknown Student'
+            })) || []}
           />
         </TabsContent>
 

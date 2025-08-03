@@ -141,6 +141,7 @@ model User {
   studentPerformanceMetrics  StudentPerformanceMetrics[]
   bloomsProgression          BloomsProgression[]
   performanceAlerts          PerformanceAlert[]
+  aiUsageLogs                AiUsageLog[]
 
   @@index([institutionId, email])
   @@index([institutionId, username])
@@ -4208,4 +4209,26 @@ model PerformanceAlert {
   @@index([classId, createdAt])
   @@index([type, createdAt])
   @@map("performance_alerts")
+}
+
+// AI Usage Log Model - Track AI feature usage for analytics and billing
+model AiUsageLog {
+  id             String   @id @default(cuid())
+  userId         String
+  feature        String   // e.g., "question-generation", "content-creation", "grading"
+  inputTokens    Int?     // Approximate input tokens
+  outputTokens   Int?     // Approximate output tokens
+  model          String?  // AI model used (e.g., "gemini-2.0-flash")
+  generationTime Int?     // Time taken in milliseconds
+  metadata       Json?    // Additional metadata about the usage
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([feature])
+  @@index([createdAt])
+  @@map("ai_usage_logs")
 }

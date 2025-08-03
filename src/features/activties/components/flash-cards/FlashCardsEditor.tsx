@@ -8,6 +8,8 @@ import { MediaUploader } from '../ui/MediaUploader';
 import { ThemeWrapper } from '../ui/ThemeWrapper';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AIActivityGeneratorButton } from '@/features/ai-question-generator/components/AIActivityGeneratorButton';
+import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 export interface FlashCardsEditorProps {
   activity?: FlashCardsActivity;
@@ -258,6 +260,46 @@ export const FlashCardsEditor: React.FC<FlashCardsEditorProps> = ({
         {feedbackMessage.message}
       </motion.div>
     );
+  };
+
+  // Handle AI-generated content
+  const handleAIContentGenerated = (content: any) => {
+    if (content.cards && Array.isArray(content.cards)) {
+      const newCards: FlashCard[] = content.cards.map((card: any) => ({
+        id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+        front: {
+          text: card.front?.text || card.front || '',
+          media: card.front?.media || null
+        },
+        back: {
+          text: card.back?.text || card.back || '',
+          media: card.back?.media || null
+        },
+        category: card.category || 'General',
+        difficulty: card.difficulty || 'medium'
+      }));
+
+      // Add the new cards to the current deck or create a new deck if none exists
+      if (localActivity.decks.length === 0) {
+        const newDeck = createDefaultFlashCardDeck();
+        newDeck.cards = newCards;
+        newDeck.title = 'AI Generated Cards';
+        updateActivity({ decks: [newDeck] });
+        setCurrentDeckIndex(0);
+      } else {
+        const updatedDecks = [...localActivity.decks];
+        updatedDecks[currentDeckIndex] = {
+          ...updatedDecks[currentDeckIndex],
+          cards: [...updatedDecks[currentDeckIndex].cards, ...newCards]
+        };
+        updateActivity({ decks: updatedDecks });
+      }
+
+      // Update current card index to show the first new card
+      if (newCards.length > 0) {
+        setCurrentCardIndex(localActivity.decks[currentDeckIndex]?.cards.length || 0);
+      }
+    }
   };
 
   return (
@@ -559,6 +601,22 @@ export const FlashCardsEditor: React.FC<FlashCardsEditorProps> = ({
             >
               Add Card
             </ActivityButton>
+          </div>
+
+          {/* AI Flash Cards Generator */}
+          <div className="mb-6">
+            <AIActivityGeneratorButton
+              activityType="flash-cards"
+              activityTitle={localActivity.title}
+              selectedTopics={[localActivity.title]}
+              selectedLearningOutcomes={[localActivity.description || 'Learn with flash cards']}
+              selectedBloomsLevel={BloomsTaxonomyLevel.REMEMBER}
+              selectedActionVerbs={['recall', 'remember', 'identify', 'define']}
+              onContentGenerated={handleAIContentGenerated}
+              onError={(error) => {
+                console.error('AI Content Generation Error:', error);
+              }}
+            />
           </div>
         </div>
 

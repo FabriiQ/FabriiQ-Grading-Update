@@ -11,6 +11,7 @@ const nextConfig = {
   // TypeScript configuration
   typescript: {
     ignoreBuildErrors: true, // Keep this false to catch actual TS errors
+    
   },
   // Memory optimization settings
   experimental: {

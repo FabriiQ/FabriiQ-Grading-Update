@@ -49,33 +49,58 @@ app.prepare().then(() => {
     global.__socialWallSocketIO = io;
     console.log('Socket.IO server created successfully');
 
-    // Basic social wall socket handling (simplified for stability)
-    io.on('connection', (socket) => {
-      console.log('User connected to social wall:', socket.id);
-
-      // Join class room
-      socket.on('join-class', (classId) => {
-        socket.join(`class-${classId}`);
-        console.log(`User joined class ${classId}:`, socket.id);
-      });
-
-      // Leave class room
-      socket.on('leave-class', (classId) => {
-        socket.leave(`class-${classId}`);
-        console.log(`User left class ${classId}:`, socket.id);
-      });
+    // Set up dynamic namespaces for class-specific connections
+    io.of(/^\/class-[\w]+$/).on('connection', (socket) => {
+      const classId = socket.nsp.name.replace('/class-', '');
+      console.log(`User connected to class ${classId}:`, socket.id);
 
       // Handle social wall posts
       socket.on('new-post', (data) => {
-        socket.to(`class-${data.classId}`).emit('post-created', data);
+        socket.to(socket.nsp.name).emit('post-created', data);
+        console.log(`New post in class ${classId}:`, data.id);
+      });
+
+      // Handle post updates
+      socket.on('update-post', (data) => {
+        socket.to(socket.nsp.name).emit('post-updated', data);
+        console.log(`Post updated in class ${classId}:`, data.id);
+      });
+
+      // Handle post deletions
+      socket.on('delete-post', (data) => {
+        socket.to(socket.nsp.name).emit('post-deleted', data);
+        console.log(`Post deleted in class ${classId}:`, data.id);
+      });
+
+      // Handle reactions
+      socket.on('add-reaction', (data) => {
+        socket.to(socket.nsp.name).emit('reaction-added', data);
+      });
+
+      socket.on('remove-reaction', (data) => {
+        socket.to(socket.nsp.name).emit('reaction-removed', data);
+      });
+
+      // Handle comments
+      socket.on('new-comment', (data) => {
+        socket.to(socket.nsp.name).emit('comment-created', data);
       });
 
       socket.on('disconnect', () => {
-        console.log('User disconnected from social wall:', socket.id);
+        console.log(`User disconnected from class ${classId}:`, socket.id);
       });
     });
 
-    console.log('Socket.IO event handlers set up successfully');
+    // Basic connection handler for non-namespace connections
+    io.on('connection', (socket) => {
+      console.log('User connected to main namespace:', socket.id);
+
+      socket.on('disconnect', () => {
+        console.log('User disconnected from main namespace:', socket.id);
+      });
+    });
+
+    console.log('Socket.IO namespaces and event handlers set up successfully');
 
   } catch (error) {
     console.error('Failed to initialize Socket.IO:', error);

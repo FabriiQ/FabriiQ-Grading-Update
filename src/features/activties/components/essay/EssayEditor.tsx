@@ -26,6 +26,7 @@ import { RubricSelector } from '@/features/bloom/components/rubrics/RubricSelect
 import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 import { EssayActivity, createDefaultEssayActivity } from '../../models/essay';
 import { useToast } from '@/components/ui/feedback/toast';
+import { AIActivityGeneratorButton } from '@/features/ai-question-generator/components/AIActivityGeneratorButton';
 
 // Form schema for essay activity creation
 const essayFormSchema = z.object({
@@ -211,6 +212,26 @@ export function EssayEditor({
     }
   };
 
+  // Handle AI-generated content
+  const handleAIContentGenerated = (content: any) => {
+    if (content.prompts && Array.isArray(content.prompts) && content.prompts.length > 0) {
+      const prompt = content.prompts[0];
+
+      // Update form with AI-generated content
+      form.setValue('prompt', prompt.prompt);
+      if (prompt.instructions) {
+        form.setValue('instructions', prompt.instructions);
+      }
+      if (prompt.wordLimit) {
+        if (prompt.wordLimit.min) form.setValue('minWords', prompt.wordLimit.min);
+        if (prompt.wordLimit.max) form.setValue('maxWords', prompt.wordLimit.max);
+      }
+      if (prompt.timeLimit) {
+        form.setValue('timeLimit', prompt.timeLimit);
+      }
+    }
+  };
+
   return (
     <Card className={className}>
       <CardHeader>
@@ -294,6 +315,22 @@ export function EssayEditor({
                   </FormItem>
                 )}
               />
+
+              {/* AI Essay Prompt Generator */}
+              <div className="mt-4">
+                <AIActivityGeneratorButton
+                  activityType="essay"
+                  activityTitle={form.watch('title') || 'Essay Activity'}
+                  selectedTopics={[form.watch('title') || 'Essay Topic']}
+                  selectedLearningOutcomes={[form.watch('description') || 'Write a comprehensive essay']}
+                  selectedBloomsLevel={form.watch('bloomsLevel') || BloomsTaxonomyLevel.ANALYZE}
+                  selectedActionVerbs={['analyze', 'evaluate', 'argue', 'discuss', 'explain']}
+                  onContentGenerated={handleAIContentGenerated}
+                  onError={(error) => {
+                    console.error('AI Content Generation Error:', error);
+                  }}
+                />
+              </div>
             </div>
 
             <Separator />

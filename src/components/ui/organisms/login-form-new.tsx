@@ -85,6 +85,10 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    // Prevent duplicate submissions
+    if (isLoading) return;
+
     setError("");
     setIsLoading(true);
 
@@ -115,12 +119,20 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
 
       const { signIn } = await import('next-auth/react');
 
-      const result = await signIn('credentials', {
+      // Add timeout to prevent hanging requests
+      const signInPromise = signIn('credentials', {
         username,
         password,
         redirect: true,
         callbackUrl: targetUrl
       });
+
+      // Set a 30-second timeout for login
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Login timeout - please try again')), 30000);
+      });
+
+      const result = await Promise.race([signInPromise, timeoutPromise]) as any;
 
       if (result?.error) {
         // Log failed login performance
@@ -175,6 +187,9 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
 
   // Function to fill credentials and submit the form
   const loginWithDemoAccount = async (username: string) => {
+    // Prevent duplicate submissions
+    if (isLoading) return;
+
     setUsername(username);
     setPassword("Password123!");
     setIsLoading(true);
@@ -207,12 +222,20 @@ export function LoginForm({ callbackUrl }: LoginFormProps) {
 
       const { signIn } = await import('next-auth/react');
 
-      const result = await signIn('credentials', {
+      // Add timeout to prevent hanging requests
+      const signInPromise = signIn('credentials', {
         username,
         password: "Password123!",
         redirect: true,
         callbackUrl: targetUrl
       });
+
+      // Set a 30-second timeout for login
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Login timeout - please try again')), 30000);
+      });
+
+      const result = await Promise.race([signInPromise, timeoutPromise]) as any;
 
       // Log performance for demo login
       logLoginPerformance({

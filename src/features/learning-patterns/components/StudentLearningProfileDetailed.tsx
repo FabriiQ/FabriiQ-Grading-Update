@@ -7,14 +7,12 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { api } from '@/trpc/react';
-import { 
-  Eye, 
-  Volume2, 
-  MousePointer, 
-  BookOpen, 
-  Clock, 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  Eye,
+  BookOpen,
+  Clock,
+  TrendingUp,
+  TrendingDown,
   ArrowRight,
   AlertTriangle,
   CheckCircle,
@@ -23,6 +21,7 @@ import {
   Target,
   Lightbulb
 } from 'lucide-react';
+import { Volume2, MousePointer } from '@/components/ui/icons-fix';
 
 interface StudentLearningProfileDetailedProps {
   studentId: string;
@@ -316,12 +315,12 @@ export function StudentLearningProfileDetailed({
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-sm mb-2">
-                      <span>Predicted Success Rate</span>
+                      <span>Predicted Score</span>
                       <span className="font-medium">
-                        {Math.round(performancePrediction.successProbability * 100)}%
+                        {Math.round(performancePrediction.predictedScore)}%
                       </span>
                     </div>
-                    <Progress value={performancePrediction.successProbability * 100} className="h-2" />
+                    <Progress value={performancePrediction.predictedScore} className="h-2" />
                   </div>
                   
                   <div className="text-sm">

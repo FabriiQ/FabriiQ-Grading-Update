@@ -364,21 +364,26 @@ export class AuthService {
   }
 
   /**
-   * Validate user credentials
+   * Validate user credentials - Optimized for performance
    */
   private async validateCredentials(credentials: LoginInput): Promise<AuthenticatedUser> {
+    // Step 1: Fast user lookup with minimal data
     const user = await this.prisma.user.findFirst({
       where: {
         username: credentials.username,
         status: SystemStatus.ACTIVE,
       },
-      include: {
-        permissions: {
-          include: {
-            permission: true,
-          },
-        },
-        activeCampuses: true,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        username: true,
+        password: true,
+        userType: true,
+        status: true,
+        primaryCampusId: true,
+        institutionId: true,
+        accessScope: true,
       },
     });
 
@@ -408,16 +413,47 @@ export class AuthService {
         });
       }
     } catch (error) {
-      logger.error('Error verifying password', { 
-        error, 
+      logger.error('Error verifying password', {
+        error,
         username: credentials.username,
-        userId: user.id 
+        userId: user.id
       });
       throw new TRPCError({
         code: "UNAUTHORIZED",
         message: "Invalid credentials",
       });
     }
+
+    // Step 2: Load permissions and campus access in parallel (only after password validation)
+    const [permissions, activeCampuses] = await Promise.all([
+      this.prisma.userPermission.findMany({
+        where: {
+          userId: user.id,
+          status: SystemStatus.ACTIVE
+        },
+        include: {
+          permission: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            }
+          },
+        },
+      }),
+      this.prisma.userCampusAccess.findMany({
+        where: {
+          userId: user.id,
+          status: SystemStatus.ACTIVE
+        },
+        select: {
+          id: true,
+          campusId: true,
+          roleType: true,
+          status: true,
+        },
+      }),
+    ]);
 
     return {
       id: user.id,
@@ -426,12 +462,12 @@ export class AuthService {
       username: user.username,
       userType: user.userType as UserType,
       institutionId: user.institutionId,
-      permissions: user.permissions.map((p: any) => ({
+      permissions: permissions.map((p: any) => ({
         id: p.permission.id,
         code: p.permission.code,
         scope: p.permission.scope as AccessScope,
       })),
-      activeCampuses: user.activeCampuses.map((c: any) => ({
+      activeCampuses: activeCampuses.map((c: any) => ({
         id: c.id,
         campusId: c.campusId,
         roleType: c.roleType as UserType,
