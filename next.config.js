@@ -10,7 +10,7 @@ const nextConfig = {
   },
   // TypeScript configuration
   typescript: {
-    ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === 'true',
+    ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === 'true', // Keep this false to catch actual TS errors
     
   },
   // Memory optimization settings

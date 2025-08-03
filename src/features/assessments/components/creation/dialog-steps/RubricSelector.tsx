@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,13 +13,20 @@ import {
   Award,
   List,
   Plus,
-  AlertCircle
+  AlertCircle,
+  Calculator,
+  FileText,
+  CheckCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/trpc/react';
 import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { LearningOutcomeCriteriaEditor } from '@/features/bloom/components/learning-outcomes/LearningOutcomeCriteriaEditor';
 import {
   LearningOutcomeCriterion,
@@ -171,87 +178,6 @@ export function RubricSelector({
     setSelectedExistingCriteria([]);
   };
 
-  // Transform the rubric criteria data into rubrics
-  const rubrics: Rubric[] = rubricCriteria ?
-    rubricCriteria.reduce((acc: Rubric[], item: RubricCriteriaItem) => {
-      const existingRubric = acc.find(r => r.id === item.rubric.id);
-      if (existingRubric) {
-        return acc;
-      }
-
-      acc.push({
-        id: item.rubric.id,
-        name: item.rubric.title,
-        title: item.rubric.title,
-        description: null,
-        subjectId: '',
-        topicId: topicId,
-        _count: {
-          criteria: rubricCriteria.filter(c => c.rubric.id === item.rubric.id).length,
-          assessments: 0
-        },
-        criteria: []
-      });
-
-      return acc;
-    }, []) : [];
-
-  // Show the interface immediately, with loading states for specific sections
-  const showRubricLoading = isLoading || (isLoadingRubrics && !!topicId && !!subjectId);
-
-  const handleRubricSelect = (rubricId: string) => {
-    // Allow deselection by clicking the same rubric
-    if (selectedRubricId === rubricId) {
-      onSelect('');
-    } else {
-      onSelect(rubricId);
-    }
-  };
-
-  // Handle creating a new rubric
-  const handleCreateRubric = async () => {
-    if (!rubricTitle.trim()) {
-      return;
-    }
-
-    // For now, skip reusable criteria to avoid type conflicts
-    // TODO: Fix the reusable criteria data structure to match expected types
-    const selectedReusableCriteria: any[] = [];
-
-    const allCriteria = [
-      ...criteria,
-      ...selectedReusableCriteria
-    ];
-
-    try {
-      const createdRubric = await createRubricMutation.mutateAsync({
-        title: rubricTitle,
-        description: rubricDescription,
-        type: rubricType,
-        maxScore,
-        subjectId,
-        learningOutcomeIds: selectedLearningOutcomes,
-        criteria: hasCriteria ? allCriteria : [],
-        performanceLevels: hasCriteria ? performanceLevels.map(pl => ({
-          id: pl.id,
-          name: pl.name,
-          description: pl.description || '',
-          scorePercentage: pl.scorePercentage,
-          color: pl.color || '#3b82f6' // Default color if not set
-        })) : []
-      });
-
-      // Select the newly created rubric
-      if (createdRubric?.id) {
-        onSelect(createdRubric.id);
-        setCreateRubricOpen(false);
-        resetRubricForm();
-      }
-    } catch (error) {
-      console.error('Error creating rubric:', error);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="text-center mb-6">
@@ -261,299 +187,201 @@ export function RubricSelector({
         </p>
       </div>
 
-      {/* Main Options Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Simple Scoring Option */}
         <Card
-          className={cn(
-            "cursor-pointer transition-all duration-200 hover:shadow-md border-2",
-            selectedRubricId === ''
-              ? "ring-2 ring-primary border-primary bg-primary/5"
-              : "hover:border-primary/50 border-dashed"
-          )}
+          className={`cursor-pointer transition-all hover:shadow-md ${
+            !selectedRubricId ? 'ring-2 ring-primary' : 'hover:border-primary/50'
+          }`}
           onClick={() => onSelect('')}
         >
-          <CardContent className="p-6 text-center">
-            <div className="flex flex-col items-center gap-4">
-              <div className="p-4 rounded-full bg-blue-100">
-                <Award className="h-8 w-8 text-blue-600" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-lg flex items-center justify-center gap-2">
-                  Simple Scoring
-                  {selectedRubricId === '' && (
-                    <Check className="h-5 w-5 text-primary" />
-                  )}
-                </h4>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Grade with a simple score out of maximum points. Quick and straightforward.
-                </p>
-              </div>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calculator className="h-5 w-5" />
+              Simple Scoring
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Use a simple point-based scoring system. Quick and straightforward for basic assessments.
+            </p>
+            <div className="flex items-center gap-2 text-sm">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <span>Easy to set up</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm mt-1">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <span>Quick grading</span>
             </div>
           </CardContent>
         </Card>
 
-        {/* Create Rubric Option */}
-        <Dialog open={createRubricOpen} onOpenChange={(open) => {
-          setCreateRubricOpen(open);
-          if (!open) {
-            resetRubricForm();
-          }
-        }}>
-          <DialogTrigger asChild>
-            <Card className="cursor-pointer transition-all duration-200 hover:shadow-md border-2 border-dashed hover:border-primary/50">
-              <CardContent className="p-6 text-center">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="p-4 rounded-full bg-green-100">
-                    <Plus className="h-8 w-8 text-green-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-lg">Create Rubric</h4>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Create detailed grading criteria with performance levels for better feedback.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </DialogTrigger>
-      </div>
+        {/* Rubric-Based Grading Option */}
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${
+            selectedRubricId ? 'ring-2 ring-primary' : 'hover:border-primary/50'
+          }`}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Rubric-Based Grading
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Use detailed rubrics with criteria and performance levels for comprehensive assessment.
+            </p>
+            <div className="flex items-center gap-2 text-sm">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <span>Detailed feedback</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm mt-1">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <span>Consistent grading</span>
+            </div>
 
-      {/* Show selected rubric preview if one is selected */}
-      {selectedRubricId && selectedRubricId !== '' && (
-        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <Check className="h-5 w-5 text-green-600" />
-            <h4 className="font-semibold text-green-800">Rubric Selected</h4>
-          </div>
-          <p className="text-sm text-green-700">
-            A custom rubric has been created and will be used for grading this assessment.
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-3"
-            onClick={() => setCreateRubricOpen(true)}
-          >
-            <Eye className="h-4 w-4 mr-2" />
-            Preview & Edit Rubric
-          </Button>
-        </div>
-      )}
-
-      {/* Create Rubric Dialog */}
-      <Dialog open={createRubricOpen} onOpenChange={(open) => {
-        setCreateRubricOpen(open);
-        if (!open) {
-          resetRubricForm();
-        }
-      }}>
-        <DialogTrigger asChild>
-          <div style={{ display: 'none' }} />
-        </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Rubric</DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-6 p-6">
-              {/* Basic Rubric Information */}
-              <div className="space-y-4">
+            <div className="mt-4 space-y-2">
+              {/* Existing Rubrics */}
+              {rubrics && rubrics.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Rubric Title *
-                  </label>
-                  <input
-                    type="text"
-                    value={rubricTitle}
-                    onChange={(e) => setRubricTitle(e.target.value)}
-                    placeholder="Enter rubric title"
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={rubricDescription}
-                    onChange={(e) => setRubricDescription(e.target.value)}
-                    placeholder="Enter rubric description"
-                    rows={3}
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Rubric Type
-                    </label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          value={RubricType.ANALYTIC}
-                          checked={rubricType === RubricType.ANALYTIC}
-                          onChange={(e) => setRubricType(e.target.value as RubricType)}
-                          className="mr-2"
-                        />
-                        Analytic (Multiple Criteria)
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          value={RubricType.HOLISTIC}
-                          checked={rubricType === RubricType.HOLISTIC}
-                          onChange={(e) => setRubricType(e.target.value as RubricType)}
-                          className="mr-2"
-                        />
-                        Holistic (Overall Assessment)
-                      </label>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Maximum Score
-                    </label>
-                    <input
-                      type="number"
-                      value={maxScore}
-                      onChange={(e) => setMaxScore(Number(e.target.value))}
-                      min="1"
-                      max="1000"
-                      className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Learning Outcomes Details */}
-              {learningOutcomesData && learningOutcomesData.length > 0 && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Selected Learning Outcomes</h3>
-                  <div className="space-y-3">
-                    {learningOutcomesData.map((outcome) => (
-                      <div key={outcome.id} className="border rounded-md p-4 bg-muted/20">
-                        <div className="font-medium mb-2">{outcome.statement}</div>
-                        {outcome.description && (
-                          <div className="text-sm text-muted-foreground mb-3">{outcome.description}</div>
-                        )}
-                        <div className="flex flex-wrap gap-2">
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            BLOOMS_COLORS[outcome.bloomsLevel] || 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {outcome.bloomsLevel}
-                          </span>
-                          {outcome.actionVerbs.map((verb, index) => (
-                            <span key={index} className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800 border border-blue-200">
-                              {verb}
+                  <Label className="text-xs font-medium">Select Existing Rubric:</Label>
+                  <Select value={selectedRubricId || ''} onValueChange={onSelect}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Choose a rubric..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rubrics.map((rubric) => (
+                        <SelectItem key={rubric.id} value={rubric.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{rubric.title}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {rubric.criteria?.length || 0} criteria • Max: {rubric.maxScore} pts
                             </span>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
-              {/* Reusable Criteria from Topic and Learning Outcomes */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Reusable Criteria</h3>
-                <p className="text-sm text-muted-foreground">
-                  Search and select existing criteria from this topic and your selected learning outcomes to reuse in this rubric:
-                </p>
+              {/* Create New Rubric Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setCreateRubricOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Rubric
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-                {/* Search input for criteria */}
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search existing criteria..."
-                    value={criteriaSearch}
-                    onChange={(e) => setCriteriaSearch(e.target.value)}
-                    className="w-full px-3 py-2 pl-10 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                  />
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                </div>
+      {/* Create Rubric Dialog */}
+      <Dialog open={createRubricOpen} onOpenChange={setCreateRubricOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Rubric</DialogTitle>
+            <DialogDescription>
+              Create a detailed rubric for comprehensive assessment grading.
+            </DialogDescription>
+          </DialogHeader>
 
-                {reusableCriteriaData?.criteria && reusableCriteriaData.criteria.length > 0 ? (
-                  <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-4">
-                    {reusableCriteriaData.criteria.map((criterion) => (
-                      <div key={criterion.id} className="flex items-start space-x-3">
-                        <input
-                          type="checkbox"
-                          id={`reusable-${criterion.id}`}
-                          checked={selectedExistingCriteria.includes(criterion.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedExistingCriteria([...selectedExistingCriteria, criterion.id]);
-                            } else {
-                              setSelectedExistingCriteria(selectedExistingCriteria.filter(id => id !== criterion.id));
-                            }
-                          }}
-                          className="mt-1"
-                        />
-                        <label htmlFor={`reusable-${criterion.id}`} className="flex-1 cursor-pointer">
-                          <div className="font-medium">{criterion.name}</div>
-                          <div className="text-sm text-muted-foreground">{criterion.description}</div>
-                          <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded text-xs ${
-                              BLOOMS_COLORS[criterion.bloomsLevel] || 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {criterion.bloomsLevel}
-                            </span>
-                            <span>From: {criterion.rubric.title}</span>
-                          </div>
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {criteriaSearch ?
-                      `No criteria found matching "${criteriaSearch}"` :
-                      'No reusable criteria available for this topic and learning outcomes'
-                    }
-                  </div>
-                )}
+          <div className="space-y-6">
+            {/* Basic Rubric Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="rubric-title">Rubric Title *</Label>
+                <Input
+                  id="rubric-title"
+                  value={rubricTitle}
+                  onChange={(e) => setRubricTitle(e.target.value)}
+                  placeholder="Enter rubric title..."
+                />
               </div>
-
-              {/* Comprehensive Rubric Criteria Editor */}
-              <LearningOutcomeCriteriaEditor
-                bloomsLevel={BloomsTaxonomyLevel.UNDERSTAND}
-                hasCriteria={hasCriteria}
-                criteria={criteria}
-                performanceLevels={performanceLevels}
-                onHasCriteriaChange={setHasCriteria}
-                onCriteriaChange={setCriteria}
-                onPerformanceLevelsChange={setPerformanceLevels}
-              />
-
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button
-                  variant="outline"
-                  onClick={() => setCreateRubricOpen(false)}
-                  disabled={createRubricMutation.isLoading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreateRubric}
-                  disabled={!rubricTitle.trim() || createRubricMutation.isLoading}
-                >
-                  {createRubricMutation.isLoading ? 'Creating...' : 'Create Rubric'}
-                </Button>
+              <div>
+                <Label htmlFor="rubric-max-score">Max Score *</Label>
+                <Input
+                  id="rubric-max-score"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={maxScore}
+                  onChange={(e) => setMaxScore(Number(e.target.value))}
+                />
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
+
+            <div>
+              <Label htmlFor="rubric-description">Description</Label>
+              <Textarea
+                id="rubric-description"
+                value={rubricDescription}
+                onChange={(e) => setRubricDescription(e.target.value)}
+                placeholder="Describe the purpose and scope of this rubric..."
+                rows={3}
+              />
+            </div>
+
+            {/* Rubric Type Selection */}
+            <div>
+              <Label>Rubric Type</Label>
+              <Select value={rubricType} onValueChange={(value) => setRubricType(value as RubricType)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={RubricType.ANALYTIC}>
+                    <div className="flex flex-col">
+                      <span>Analytic Rubric</span>
+                      <span className="text-xs text-muted-foreground">
+                        Separate scores for different criteria
+                      </span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value={RubricType.HOLISTIC}>
+                    <div className="flex flex-col">
+                      <span>Holistic Rubric</span>
+                      <span className="text-xs text-muted-foreground">
+                        Single overall score
+                      </span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateRubricOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                // Create the rubric with basic information
+                createRubricMutation.mutate({
+                  title: rubricTitle,
+                  description: rubricDescription,
+                  type: rubricType,
+                  maxScore,
+                  subjectId,
+                  topicId,
+                  learningOutcomeIds: selectedLearningOutcomes,
+                  criteria: [], // Will be added later in rubric builder
+                  performanceLevels: [], // Will be added later in rubric builder
+                });
+              }}
+              disabled={!rubricTitle || maxScore <= 0 || createRubricMutation.isLoading}
+            >
+              {createRubricMutation.isLoading ? 'Creating...' : 'Create Rubric'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -10,6 +10,8 @@ import { TeacherAttendanceTracker } from './TeacherAttendanceTracker';
 import { TeacherPerformanceComparison } from './TeacherPerformanceComparison';
 import { ClassTransferManager } from './ClassTransferManager';
 import { api } from '@/utils/api';
+import { TeacherPageSkeleton } from '@/components/teacher/loading/TeacherLoadingComponents';
+import { TeacherErrorDisplay } from '@/components/teacher/error/TeacherErrorBoundary';
 import {
   Users,
   BarChart,
@@ -142,6 +144,23 @@ export function TeacherManagementDashboard({
 
   // Loading state
   const isLoading = programsQuery.isLoading || coursesQuery.isLoading || teachersQuery.isLoading || teacherMetricsQuery.isLoading || transfersQuery.isLoading;
+
+  // Show loading state
+  if (isLoading) {
+    return <TeacherPageSkeleton showHeader showTabs contentRows={4} />;
+  }
+
+  // Show error state if any query failed
+  const hasError = programsQuery.error || coursesQuery.error || teachersQuery.error || teacherMetricsQuery.error || transfersQuery.error;
+  if (hasError) {
+    const errorMessage = programsQuery.error?.message || coursesQuery.error?.message || teachersQuery.error?.message || teacherMetricsQuery.error?.message || transfersQuery.error?.message || 'Failed to load teacher management data';
+    return (
+      <TeacherErrorDisplay
+        error={errorMessage}
+        onRetry={handleRefresh}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">

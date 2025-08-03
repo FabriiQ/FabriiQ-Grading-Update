@@ -49,109 +49,103 @@ export class TeacherLeaderboardService extends ServiceBase {
         offset = 0
       } = params;
 
-      // Mock data for teacher leaderboard
-      const mockTeachers = [
-          {
-            teacherId: "teacher1",
-            totalPoints: 1200,
-            dailyPoints: 50,
-            weeklyPoints: 320,
-            monthlyPoints: 850,
-            termPoints: 1200,
-            teacher: {
-              user: {
-                id: "user1",
-                name: "John Smith",
-                profileData: { avatar: "/avatars/teacher1.jpg" }
+      // Fetch real teacher leaderboard data from database
+      const teachers = await this.db.teacher.findMany({
+        where: {
+          ...(campusId && { campusId }),
+          ...(programId && {
+            classes: {
+              some: {
+                courseCampus: {
+                  course: {
+                    programId
+                  }
+                }
               }
             }
-          },
-          {
-            teacherId: "teacher2",
-            totalPoints: 980,
-            dailyPoints: 30,
-            weeklyPoints: 210,
-            monthlyPoints: 720,
-            termPoints: 980,
-            teacher: {
-              user: {
-                id: "user2",
-                name: "Sarah Johnson",
-                profileData: { avatar: "/avatars/teacher2.jpg" }
-              }
+          }),
+          user: {
+            status: 'ACTIVE'
+          }
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              profileData: true
             }
           },
-          {
-            teacherId: "teacher3",
-            totalPoints: 1450,
-            dailyPoints: 70,
-            weeklyPoints: 380,
-            monthlyPoints: 950,
-            termPoints: 1450,
-            teacher: {
-              user: {
-                id: "user3",
-                name: "Michael Brown",
-                profileData: { avatar: null }
+          teacherPoints: {
+            where: {
+              createdAt: {
+                gte: startDate,
+                lte: endDate
               }
+            },
+            select: {
+              points: true,
+              createdAt: true,
+              activityType: true
             }
           }
-        ];
+        },
+        take: limit,
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
 
-        // Mock performance metrics
-        const mockPerformanceMetrics = [
-          {
-            teacherId: "teacher1",
-            studentPerformance: 85,
-            attendanceRate: 95,
-            feedbackTime: 24,
-            activityCreation: 42,
-            activityEngagement: 78,
-            classPerformance: 82,
-            overallRating: 84
-          },
-          {
-            teacherId: "teacher2",
-            studentPerformance: 78,
-            attendanceRate: 90,
-            feedbackTime: 36,
-            activityCreation: 28,
-            activityEngagement: 65,
-            classPerformance: 75,
-            overallRating: 76
-          },
-          {
-            teacherId: "teacher3",
-            studentPerformance: 92,
-            attendanceRate: 98,
-            feedbackTime: 12,
-            activityCreation: 56,
-            activityEngagement: 88,
-            classPerformance: 90,
-            overallRating: 92
+      // Calculate points for each teacher
+      const teachersWithPoints = teachers.map(teacher => {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const dailyPoints = teacher.teacherPoints
+          .filter(p => p.createdAt >= todayStart)
+          .reduce((sum, p) => sum + p.points, 0);
+
+        const weeklyPoints = teacher.teacherPoints
+          .filter(p => p.createdAt >= weekStart)
+          .reduce((sum, p) => sum + p.points, 0);
+
+        const monthlyPoints = teacher.teacherPoints
+          .filter(p => p.createdAt >= monthStart)
+          .reduce((sum, p) => sum + p.points, 0);
+
+        const totalPoints = teacher.teacherPoints
+          .reduce((sum, p) => sum + p.points, 0);
+
+        return {
+          teacherId: teacher.id,
+          totalPoints,
+          dailyPoints,
+          weeklyPoints,
+          monthlyPoints,
+          termPoints: totalPoints, // For now, term points = total points
+          teacher: {
+            user: teacher.user
           }
-        ];
+        };
+      });
 
-        // Mock teacher assignments
-        const mockTeacherAssignments = [
-          { teacherId: "teacher1", _count: { classId: 3 } },
-          { teacherId: "teacher2", _count: { classId: 2 } },
-          { teacherId: "teacher3", _count: { classId: 4 } }
-        ];
+        // Sort teachers by total points
+        const sortedTeachers = teachersWithPoints.sort((a, b) => b.totalPoints - a.totalPoints);
 
-        // Map to leaderboard entries
-        const leaderboard = mockTeachers.map((teacher, index) => {
-          const metrics = mockPerformanceMetrics.find(pm => pm.teacherId === teacher.teacherId) || {
-            studentPerformance: 0,
-            attendanceRate: 0,
-            feedbackTime: 0,
-            activityCreation: 0,
-            activityEngagement: 0,
-            classPerformance: 0,
-            overallRating: 0
+        // Map to leaderboard entries with real data
+        const leaderboard = sortedTeachers.map((teacher, index) => {
+          // Calculate real performance metrics from database
+          const metrics = {
+            studentPerformance: 0, // TODO: Calculate from student grades
+            attendanceRate: 0, // TODO: Calculate from attendance records
+            feedbackTime: 0, // TODO: Calculate from feedback timestamps
+            activityCreation: teacher.teacherPoints.filter(p => p.activityType === 'ACTIVITY_CREATED').length,
+            activityEngagement: 0, // TODO: Calculate from student engagement
+            classPerformance: 0, // TODO: Calculate from class averages
+            overallRating: Math.min(100, Math.max(0, teacher.totalPoints / 10)) // Simple rating based on points
           };
-
-          const classCount = mockTeacherAssignments.find(ta => ta.teacherId === teacher.teacherId)?._count.classId || 0;
 
           return {
             id: teacher.teacherId,
@@ -166,7 +160,7 @@ export class TeacherLeaderboardService extends ServiceBase {
               classPerformance: metrics.classPerformance || 0,
               overallRating: metrics.overallRating || 0
             },
-            classes: classCount,
+            classes: 0, // TODO: Get actual class count from database
             points: timeframe === "daily" ? teacher.dailyPoints :
                     timeframe === "weekly" ? teacher.weeklyPoints :
                     timeframe === "monthly" ? teacher.monthlyPoints :

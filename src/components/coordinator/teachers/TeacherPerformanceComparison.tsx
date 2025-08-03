@@ -97,15 +97,14 @@ export function TeacherPerformanceComparison({
     saveData: savePerformanceData
   } = useOfflineStorage(OfflineStorageType.ANALYTICS);
 
-  // Available courses for selection
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [availableCourses, _setAvailableCourses] = useState<any[]>([
-    { id: 'course-1', name: 'Mathematics 101' },
-    { id: 'course-2', name: 'Physics 101' },
-    { id: 'course-3', name: 'Chemistry 101' },
-    { id: 'course-4', name: 'Biology 101' },
-    { id: 'course-5', name: 'English Literature' }
-  ]);
+  // Fetch available courses using tRPC
+  const { data: availableCourses = [], isLoading: isLoadingCourses } = api.course.getAll.useQuery(
+    {},
+    {
+      staleTime: 10 * 60 * 1000, // 10 minutes cache
+      refetchOnWindowFocus: false,
+    }
+  );
 
   // Fetch performance data on component mount or when parameters change
   useEffect(() => {

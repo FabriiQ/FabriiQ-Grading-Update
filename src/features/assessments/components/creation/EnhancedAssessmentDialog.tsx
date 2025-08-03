@@ -200,7 +200,7 @@ export function EnhancedAssessmentDialog({
         variant: "success",
       });
       // Pass both assessment ID and data to the success callback
-      onSuccess?.(data.id, { category: assessmentType, ...data });
+      onSuccess?.(data.id, { ...data, category: assessmentType });
       onOpenChange(false);
       resetDialog();
     },

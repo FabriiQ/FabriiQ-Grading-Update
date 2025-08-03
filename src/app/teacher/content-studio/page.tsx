@@ -8,11 +8,13 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, BookOpen, ClipboardCheck, Plus } from "lucide-react";
+import { FileText, BookOpen, ClipboardList, ClipboardCheck, Plus } from "lucide-react";
 import { PageHeader } from "@/components/ui/atoms/page-header";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { TeacherPageWrapper } from "@/components/teacher/layout/TeacherPageWrapper";
+import { TeacherErrorDisplay } from "@/components/teacher/error/TeacherErrorBoundary";
 
-export default function ContentStudioPage() {
+function ContentStudioPageContent() {
   const { data: session } = useSession();
   const [teacherId, setTeacherId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("worksheets");
@@ -31,20 +33,36 @@ export default function ContentStudioPage() {
   );
 
   // Fetch worksheets for the teacher
-  const { data: worksheets, isLoading: isLoadingWorksheets } = api.aiContentStudio.listWorksheetsByTeacher.useQuery(
+  const {
+    data: worksheets,
+    isLoading: isLoadingWorksheets,
+    error: worksheetsError,
+    refetch: refetchWorksheets
+  } = api.aiContentStudio.listWorksheetsByTeacher.useQuery(
     { teacherId: teacherId || "" },
     { enabled: !!teacherId }
   );
 
-  // Fetch activities for the teacher
-  const { data: activities, isLoading: isLoadingActivities } = api.activityTeacher.listByTeacher.useQuery(
-    { teacherId: teacherId || "" },
+  // Fetch activities for the teacher with pagination
+  const {
+    data: activitiesResponse,
+    isLoading: isLoadingActivities,
+    error: activitiesError,
+    refetch: refetchActivities
+  } = api.activityTeacher.listByTeacher.useQuery(
+    {
+      teacherId: teacherId || "",
+      limit: 50,
+      offset: 0
+    },
     { enabled: !!teacherId }
   );
+
+  const activities = Array.isArray(activitiesResponse) ? activitiesResponse : (activitiesResponse?.activities || []);
 
   // Filter activities by purpose
-  const learningActivities = activities?.filter((activity: any) => activity.purpose === "LEARNING") || [];
-  const assessments = activities?.filter((activity: any) => activity.purpose === "ASSESSMENT") || [];
+  const learningActivities = activities.filter((activity: any) => activity.purpose === "LEARNING");
+  const assessments = activities.filter((activity: any) => activity.purpose === "ASSESSMENT");
 
   return (
     <div className="container py-6">
@@ -94,7 +112,12 @@ export default function ContentStudioPage() {
 
         {/* Worksheets Tab */}
         <TabsContent value="worksheets">
-          {isLoadingWorksheets ? (
+          {worksheetsError ? (
+            <TeacherErrorDisplay
+              error={worksheetsError.message || 'Failed to load worksheets'}
+              onRetry={refetchWorksheets}
+            />
+          ) : isLoadingWorksheets ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
                 <Card key={i} className="overflow-hidden">
@@ -145,7 +168,12 @@ export default function ContentStudioPage() {
 
         {/* Activities Tab */}
         <TabsContent value="activities">
-          {isLoadingActivities ? (
+          {activitiesError ? (
+            <TeacherErrorDisplay
+              error={activitiesError.message || 'Failed to load activities'}
+              onRetry={refetchActivities}
+            />
+          ) : isLoadingActivities ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
                 <Card key={i} className="overflow-hidden">
@@ -246,5 +274,19 @@ export default function ContentStudioPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function ContentStudioPage() {
+  return (
+    <TeacherPageWrapper
+      requireAuth
+      requireTeacherRole
+      loadingConfig="contentStudio"
+      customLoadingTitle="AI Content Studio"
+      customLoadingDescription="Loading your content creation tools"
+    >
+      <ContentStudioPageContent />
+    </TeacherPageWrapper>
   );
 }

@@ -16,6 +16,12 @@ import { Skeleton } from '@/components/ui/atoms/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { TeacherLeaderboardPreview } from '@/components/teacher/dashboard/TeacherLeaderboardPreview';
 import { TeacherPerformanceMetrics } from '@/components/teacher/dashboard/TeacherPerformanceMetrics';
+import { useTeacherRealTimeUpdates } from '@/features/teacher/hooks/useTeacherMemoryCleanup';
+import {
+  useOptimizedTeacherDashboard,
+  useTeacherDashboardPerformance,
+  withTeacherDashboardMemo
+} from '@/features/teacher/services/teacher-dashboard-performance.service';
 
 interface TeacherDashboardContentProps {
   campusId: string;
@@ -23,40 +29,49 @@ interface TeacherDashboardContentProps {
   teacherId: string;
 }
 
-export function TeacherDashboardContent({ campusId, campusName, teacherId }: TeacherDashboardContentProps) {
+function TeacherDashboardContentInner({ campusId, campusName, teacherId }: TeacherDashboardContentProps) {
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
-  // Fetch teacher performance metrics
+  // Use optimized dashboard data fetching
   const {
-    data: teacherMetrics,
-    isLoading: isLoadingMetrics,
-    refetch: refetchMetrics
-  } = api.teacherAnalytics.getTeacherMetrics.useQuery(
-    { teacherId },
-    {
-      refetchOnWindowFocus: false,
-      onError: (error) => {
-        console.error('Error fetching teacher metrics:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load performance metrics',
-          variant: 'error',
-        });
-      }
-    }
-  );
+    data: dashboardData,
+    isLoading,
+    error,
+    refresh,
+    isCached,
+    cacheHitRate
+  } = useOptimizedTeacherDashboard(teacherId, campusId);
 
-  // Function to refresh all data
+  // Performance monitoring
+  const { renderCount } = useTeacherDashboardPerformance('TeacherDashboardContent');
+
+  // Extract data from optimized response
+  const teacherMetrics = dashboardData.teacherMetrics;
+  const teacherClasses = dashboardData.teacherClasses;
+  const isLoadingMetrics = isLoading;
+  const isLoadingTeacherClasses = isLoading;
+
+  // Handle errors
+  React.useEffect(() => {
+    if (error) {
+      console.error('Error fetching dashboard data:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load dashboard data',
+        variant: 'error',
+      });
+    }
+  }, [error, toast]);
+
+  // Function to refresh all data using optimized refresh
   const refreshAllData = async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([
-        refetchMetrics()
-      ]);
+      await refresh();
       toast({
         title: 'Data refreshed',
-        description: 'Dashboard data has been updated',
+        description: `Dashboard data has been updated ${isCached ? '(from cache)' : ''}`,
         variant: 'success',
       });
     } catch (error) {
@@ -71,49 +86,13 @@ export function TeacherDashboardContent({ campusId, campusName, teacherId }: Tea
     }
   };
 
-  // FIXED: Add real-time event listeners for consistent teacher dashboard updates
-  React.useEffect(() => {
-    const handleRealTimeUpdate = () => {
-      // Refresh teacher dashboard data when real-time events occur
-      refreshAllData();
-    };
+  // Use the memory-safe real-time updates hook
+  useTeacherRealTimeUpdates(() => {
+    refreshAllData();
+  });
 
-    // Add event listeners for real-time updates
-    if (typeof window !== 'undefined') {
-      window.addEventListener('activity-submitted', handleRealTimeUpdate);
-      window.addEventListener('dashboard-update-needed', handleRealTimeUpdate);
-      window.addEventListener('analytics-refresh-needed', handleRealTimeUpdate);
-    }
-
-    // Cleanup event listeners
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('activity-submitted', handleRealTimeUpdate);
-        window.removeEventListener('dashboard-update-needed', handleRealTimeUpdate);
-        window.removeEventListener('analytics-refresh-needed', handleRealTimeUpdate);
-      }
-    };
-  }, [refetchMetrics]);
-
-  // Fetch teacher's classes using the correct API endpoint
-  const {
-    data: teacherClassesData = [],
-    isLoading: isLoadingTeacherClasses
-  } = api.teacher.getTeacherClasses.useQuery(
-    { teacherId },
-    {
-      refetchOnWindowFocus: false,
-      retry: 1,
-      onError: (error) => {
-        console.error('Error fetching teacher classes:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load class data',
-          variant: 'error',
-        });
-      }
-    }
-  );
+  // Use teacher classes from optimized dashboard data
+  const teacherClassesData = teacherClasses || [];
 
 
 
@@ -133,6 +112,27 @@ export function TeacherDashboardContent({ campusId, campusName, teacherId }: Tea
   }, [teacherClassesData]);
 
   const isLoadingStudents = isLoadingTeacherClasses;
+
+  // Show loading state if any data is loading
+  if (isLoadingMetrics || isLoadingTeacherClasses) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-9 w-20" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+          </div>
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -179,3 +179,16 @@ export function TeacherDashboardContent({ campusId, campusName, teacherId }: Tea
     </div>
   );
 }
+
+// Export memoized version for better performance
+export const TeacherDashboardContent = withTeacherDashboardMemo(
+  TeacherDashboardContentInner,
+  (prevProps, nextProps) => {
+    // Custom comparison to prevent unnecessary re-renders
+    return (
+      prevProps.teacherId === nextProps.teacherId &&
+      prevProps.campusId === nextProps.campusId &&
+      prevProps.campusName === nextProps.campusName
+    );
+  }
+);

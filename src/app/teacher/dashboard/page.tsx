@@ -7,33 +7,27 @@ import { TeacherDashboardContent } from "@/components/dashboard/TeacherDashboard
 import { QuickTeacherLoading } from '@/components/teacher/loading/TeacherLoadingState';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
+import { useOptimizedTeacherDashboard } from '@/features/teacher/services/teacher-dashboard-performance.service';
 
 export default function TeacherDashboardPage() {
   const { data: session, status } = useSession();
 
-  // Fetch teacher data
-  const { data: teacherData, isLoading: isLoadingTeacher, error } = api.teacher.getDashboardData.useQuery(
-    undefined,
-    {
-      enabled: !!session?.user?.id,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      refetchInterval: 30000, // Refresh every 30 seconds
-    }
-  );
+  // Get teacher ID from session
+  const teacherId = session?.user?.id;
 
   // Show loading state
-  if (status === 'loading' || isLoadingTeacher) {
+  if (status === 'loading') {
     return <QuickTeacherLoading configKey="dashboard" />;
   }
 
-  // Show error state
-  if (error || !teacherData) {
+  // Show error state if no session or teacher ID
+  if (!session?.user?.id) {
     return (
       <div className="container mx-auto py-6">
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            {error?.message || 'Failed to load dashboard data. Please try again.'}
+            Please log in to access the teacher dashboard.
           </AlertDescription>
         </Alert>
       </div>
@@ -42,7 +36,11 @@ export default function TeacherDashboardPage() {
 
   return (
     <div className="container mx-auto py-6">
-      <TeacherDashboardContent teacherData={teacherData} />
+      <TeacherDashboardContent
+        teacherId={teacherId!}
+        campusId={session?.user?.primaryCampusId || ''}
+        campusName={'Campus'} // Will be fetched by the component if needed
+      />
     </div>
   );
 }

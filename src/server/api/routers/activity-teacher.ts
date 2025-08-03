@@ -13,26 +13,51 @@ export const activityTeacherRouter = createTRPCRouter({
     .input(z.object({
       teacherId: z.string(),
       status: z.nativeEnum(SystemStatus).optional().default(SystemStatus.ACTIVE),
+      limit: z.number().min(1).max(100).default(20),
+      offset: z.number().min(0).default(0),
+      purpose: z.enum(['LEARNING', 'ASSESSMENT', 'PRACTICE']).optional(),
     }))
     .query(async ({ ctx, input }) => {
       try {
-        // Get all activities created by this teacher using Prisma ORM
-        const activities = await ctx.prisma.activity.findMany({
-          where: {
-            class: {
-              teachers: {
-                some: {
-                  teacherId: input.teacherId
-                }
+        const { teacherId, status, limit, offset, purpose } = input;
+
+        const where = {
+          class: {
+            teachers: {
+              some: {
+                teacherId
               }
-            },
-            status: input.status
+            }
           },
-          include: {
+          status,
+          ...(purpose && { purpose }),
+        };
+
+        // Get total count for pagination
+        const totalCount = await ctx.prisma.activity.count({ where });
+
+        // Get activities with pagination and optimized selection
+        const activities = await ctx.prisma.activity.findMany({
+          where,
+          take: limit,
+          skip: offset,
+          select: {
+            id: true,
+            title: true,
+            purpose: true,
+            learningType: true,
+            bloomsLevel: true,
+            isGradable: true,
+            maxScore: true,
+            startDate: true,
+            endDate: true,
+            createdAt: true,
+            status: true,
             subject: {
               select: {
                 id: true,
-                name: true
+                name: true,
+                code: true
               }
             },
             topic: {
@@ -40,12 +65,30 @@ export const activityTeacherRouter = createTRPCRouter({
                 id: true,
                 title: true
               }
+            },
+            class: {
+              select: {
+                id: true,
+                name: true
+              }
+            },
+            _count: {
+              select: {
+                activityGrades: true,
+                learningTimeRecords: true
+              }
             }
           },
           orderBy: {
             createdAt: 'desc'
           }
         });
+
+        return {
+          activities,
+          totalCount,
+          hasMore: offset + limit < totalCount,
+        };
 
         // Transform the results to maintain the same response structure
         const transformedActivities = activities.map(activity => {

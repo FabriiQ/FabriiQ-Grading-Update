@@ -93,70 +93,37 @@ export function CampusStudentsContent({
     },
   ];
 
-  // Fetch students data
-  useEffect(() => {
-    const fetchStudents = async () => {
-      try {
-        // In a real implementation, this would be an API call
-        // For now, we'll use mock data
-        const mockStudents = [
-          {
-            id: "1",
-            name: "John Smith",
-            email: "john.smith@example.com",
-            enrollmentNumber: "EN2023001",
-            program: "Computer Science",
-            classCount: 4,
-            status: "ACTIVE"
-          },
-          {
-            id: "2",
-            name: "Sarah Johnson",
-            email: "sarah.johnson@example.com",
-            enrollmentNumber: "EN2023002",
-            program: "Business Administration",
-            classCount: 5,
-            status: "ACTIVE"
-          },
-          {
-            id: "3",
-            name: "Michael Brown",
-            email: "michael.brown@example.com",
-            enrollmentNumber: "EN2023003",
-            program: "Engineering",
-            classCount: 3,
-            status: "ACTIVE"
-          },
-          {
-            id: "4",
-            name: "Emily Davis",
-            email: "emily.davis@example.com",
-            enrollmentNumber: "EN2023004",
-            program: "Medicine",
-            classCount: 6,
-            status: "INACTIVE"
-          },
-          {
-            id: "5",
-            name: "David Wilson",
-            email: "david.wilson@example.com",
-            enrollmentNumber: "EN2023005",
-            program: "Computer Science",
-            classCount: 4,
-            status: "ACTIVE"
-          }
-        ];
-
-        setStudents(mockStudents);
-        setLoading(false);
-      } catch (error) {
+  // Fetch students data using tRPC with pagination
+  const { data: studentsResponse, isLoading: isLoadingStudents, error } = api.coordinator.getStudents.useQuery(
+    {
+      campusId: campus.id,
+      search: searchQuery || undefined,
+      limit: 50,
+      offset: 0
+    },
+    {
+      enabled: !!campus.id,
+      staleTime: 5 * 60 * 1000, // 5 minutes cache
+      refetchOnWindowFocus: false,
+      onError: (error) => {
         console.error("Error fetching students:", error);
         setLoading(false);
       }
-    };
+    }
+  );
 
-    fetchStudents();
-  }, []);
+  // Update students state when data changes
+  useEffect(() => {
+    if (studentsResponse?.students) {
+      setStudents(studentsResponse.students);
+      setLoading(false);
+    } else if (error) {
+      setStudents([]);
+      setLoading(false);
+    } else if (isLoadingStudents) {
+      setLoading(true);
+    }
+  }, [studentsResponse, error, isLoadingStudents]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

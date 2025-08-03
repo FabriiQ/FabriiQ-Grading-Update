@@ -70,9 +70,13 @@ export default function TeacherLeaderboardPage() {
     }
   );
 
-  // Fetch teachers based on selected campus
-  const { data: teachers, isLoading: isLoadingTeachers } = api.teacher.getAllTeachers.useQuery(
-    { campusId: selectedCampusId },
+  // Fetch teachers based on selected campus with pagination
+  const { data: teachersResponse, isLoading: isLoadingTeachers } = api.teacher.getAllTeachers.useQuery(
+    {
+      campusId: selectedCampusId,
+      limit: 100, // Get more teachers for leaderboard
+      offset: 0
+    },
     {
       enabled: !!selectedCampusId,
       onError: (error) => {
@@ -84,6 +88,8 @@ export default function TeacherLeaderboardPage() {
       },
     }
   );
+
+  const teachers = teachersResponse?.teachers || [];
 
   return (
     <div className="container py-6 space-y-6">

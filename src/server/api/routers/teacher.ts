@@ -1286,15 +1286,16 @@ export const teacherRouter = createTRPCRouter({
           });
         }
 
-        // Add new qualifications
-        for (const subjectId of subjectsToAdd) {
-          await ctx.prisma.teacherSubjectQualification.create({
-            data: {
+        // Add new qualifications using createMany for better performance
+        if (subjectsToAdd.length > 0) {
+          await ctx.prisma.teacherSubjectQualification.createMany({
+            data: subjectsToAdd.map(subjectId => ({
               teacherId: input.id,
-              subjectId: subjectId,
-              level: "BASIC",
+              subjectId,
+              level: "BASIC" as const,
               isVerified: true
-            }
+            })),
+            skipDuplicates: true
           });
         }
       }
@@ -1309,23 +1310,69 @@ export const teacherRouter = createTRPCRouter({
   getAllTeachers: protectedProcedure
     .input(z.object({
       campusId: z.string(),
+      limit: z.number().min(1).max(100).default(50),
+      offset: z.number().min(0).default(0),
+      search: z.string().optional(),
     }))
     .query(async ({ ctx, input }) => {
-      return ctx.prisma.teacherProfile.findMany({
-        where: {
-          user: {
-            activeCampuses: {
-              some: {
-                campusId: input.campusId,
-                status: 'ACTIVE' as SystemStatus,
-              },
+      const { campusId, limit, offset, search } = input;
+
+      const where = {
+        user: {
+          activeCampuses: {
+            some: {
+              campusId,
+              status: 'ACTIVE' as SystemStatus,
             },
           },
+          ...(search && {
+            name: {
+              contains: search,
+              mode: 'insensitive' as const,
+            },
+          }),
         },
-        include: {
-          user: true,
+      };
+
+      // Get total count for pagination
+      const totalCount = await ctx.prisma.teacherProfile.count({ where });
+
+      // Get teachers with pagination
+      const teachers = await ctx.prisma.teacherProfile.findMany({
+        where,
+        take: limit,
+        skip: offset,
+        select: {
+          id: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              profileData: true,
+            },
+          },
+          // Only include essential data for performance
+          _count: {
+            select: {
+              assignments: {
+                where: { status: 'ACTIVE' as SystemStatus }
+              }
+            }
+          }
         },
+        orderBy: {
+          user: {
+            name: 'asc'
+          }
+        }
       });
+
+      return {
+        teachers,
+        totalCount,
+        hasMore: offset + limit < totalCount,
+      };
     }),
 
   // Get a specific teacher by ID

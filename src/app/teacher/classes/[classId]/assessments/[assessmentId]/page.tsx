@@ -221,35 +221,41 @@ export default function AssessmentDetailPage() {
     };
   }, [assessment, analyticsData, totalSubmissions, gradedSubmissions, assessmentId]);
 
-  // Real results data from submissions
-  const realResults = assessment.submissions?.map((sub) => {
-    const score = sub.score || 0;
-    const maxScore = assessment.maxScore || 100;
-    const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
+  // Real results data from submissions - with proper null checks
+  const realResults = useMemo(() => {
+    if (!assessment || !assessment.submissions) {
+      return [];
+    }
 
-    // Calculate letter grade
-    const getLetterGrade = (percentage: number) => {
-      if (percentage >= 90) return 'A';
-      if (percentage >= 80) return 'B';
-      if (percentage >= 70) return 'C';
-      if (percentage >= 60) return 'D';
-      return 'F';
-    };
+    return assessment.submissions.map((sub) => {
+      const score = sub.score || 0;
+      const maxScore = assessment.maxScore || 100;
+      const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
 
-    return {
-      studentId: sub.student?.id || '',
-      studentName: sub.student?.user?.name || 'Unknown Student',
-      studentEmail: sub.student?.user?.email || '',
-      score,
-      percentage,
-      grade: getLetterGrade(percentage),
-      submittedAt: sub.submittedAt || sub.createdAt,
-      timeSpent: sub.timeSpentMinutes || 0,
-      bloomsLevelScores: sub.bloomsLevelScores ? JSON.parse(sub.bloomsLevelScores as string) : {},
-      topicMasteryChanges: sub.topicMasteryChanges ? JSON.parse(sub.topicMasteryChanges as string) : [],
-      learningOutcomeAchievements: sub.learningOutcomeAchievements ? JSON.parse(sub.learningOutcomeAchievements as string) : [],
-    };
-  }) || [];
+      // Calculate letter grade
+      const getLetterGrade = (percentage: number) => {
+        if (percentage >= 90) return 'A';
+        if (percentage >= 80) return 'B';
+        if (percentage >= 70) return 'C';
+        if (percentage >= 60) return 'D';
+        return 'F';
+      };
+
+      return {
+        studentId: sub.student?.id || '',
+        studentName: sub.student?.user?.name || 'Unknown Student',
+        studentEmail: sub.student?.user?.email || '',
+        score,
+        percentage,
+        grade: getLetterGrade(percentage),
+        submittedAt: sub.submittedAt || sub.createdAt,
+        timeSpent: sub.timeSpentMinutes || 0,
+        bloomsLevelScores: sub.bloomsLevelScores ? JSON.parse(sub.bloomsLevelScores as string) : {},
+        topicMasteryChanges: sub.topicMasteryChanges ? JSON.parse(sub.topicMasteryChanges as string) : [],
+        learningOutcomeAchievements: sub.learningOutcomeAchievements ? JSON.parse(sub.learningOutcomeAchievements as string) : [],
+      };
+    });
+  }, [assessment]);
 
   // CONDITIONAL RETURNS AFTER ALL HOOKS
   if (isLoadingAssessment) {
@@ -423,7 +429,7 @@ export default function AssessmentDetailPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {assessment.submissions && assessment.submissions.length > 0 ? (
+              {assessment?.submissions && assessment.submissions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
                     <thead>
@@ -529,7 +535,7 @@ export default function AssessmentDetailPage() {
         </TabsContent>
 
         {/* Rubric Tab */}
-        {assessment.bloomsRubric && (
+        {assessment?.bloomsRubric && (
           <TabsContent value="rubric" className="mt-6">
             <Card>
               <CardHeader>

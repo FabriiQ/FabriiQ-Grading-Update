@@ -11,13 +11,14 @@ import { AlertTriangle } from 'lucide-react';
 export default function TeacherClassesPage() {
   const { data: session, status } = useSession();
 
-  // Fetch teacher classes
+  // Fetch teacher classes with proper cleanup
   const { data: classes, isLoading, error } = api.class.getTeacherClasses.useQuery(
     undefined,
     {
       enabled: !!session?.user?.id,
       staleTime: 5 * 60 * 1000, // 5 minutes
       refetchInterval: 30000, // Refresh every 30 seconds
+      refetchIntervalInBackground: false, // Stop refetching when tab is not active
     }
   );
 
