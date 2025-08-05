@@ -147,8 +147,8 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }: { session: Session; token: JWT }) {
       if (!token || !session.user) return session;
 
-      // Use session cache to avoid repeated processing
-      const sessionCacheKey = `session:${token.sub}:${Date.now() - (Date.now() % (2 * 60 * 1000))}`;
+      // Use session cache to avoid repeated processing (5-minute buckets for better caching)
+      const sessionCacheKey = `session:${token.sub}:${Math.floor(Date.now() / (5 * 60 * 1000))}`;
       const cachedSession = sessionCache.get(sessionCacheKey);
       if (cachedSession) {
         return cachedSession;
@@ -164,11 +164,7 @@ export const authOptions: NextAuthOptions = {
       (session.user as any).status = token.status as string;
       (session.user as any).institutionId = token.institutionId as string;
 
-      logger.debug("[AUTH] Session created", {
-        userId: session.user.id,
-        userType: session.user.userType,
-        hasPrimaryCampus: !!session.user.primaryCampusId
-      });
+      // Removed debug logging to reduce overhead
 
       // Only fetch fresh user data if token is older than 10 minutes (reduce DB calls)
       const tokenAge = Date.now() - ((token.iat as number) || 0) * 1000;
@@ -190,11 +186,18 @@ export const authOptions: NextAuthOptions = {
             }
           }
         } catch (error) {
-          logger.error("[AUTH] Error fetching cached session data", { error });
+          logger.error("[AUTH] Error fetching cached session data", {
+            error: {
+              name: error instanceof Error ? error.name : 'Unknown',
+              message: error instanceof Error ? error.message : 'Unknown error'
+            },
+            userId: token.sub
+          });
+          // Continue with existing session data instead of failing
         }
       }
 
-      // Cache the session for 2 minutes
+      // Cache the session for 5 minutes
       sessionCache.set(sessionCacheKey, session);
       return session;
     },
@@ -259,9 +262,7 @@ export const authOptions: NextAuthOptions = {
     async signOut({ token }) {
       logger.debug("[AUTH] User signed out", { userId: token.sub });
     },
-    async session({ token }) {
-      logger.debug("[AUTH] Session accessed", { userId: token.sub });
-    }
+    // Removed session event logging to reduce overhead and excessive logging
   },
   debug: process.env.NODE_ENV === "development",
   logger: {

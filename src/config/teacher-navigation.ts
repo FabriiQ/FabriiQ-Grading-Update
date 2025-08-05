@@ -29,27 +29,15 @@ export const teacherNavigationItems = [
     requiredRoles: ['CAMPUS_TEACHER']
   },
   {
-    title: 'Assessments',
-    path: '/teacher/assessments',
-    icon: ClipboardList,
-    requiredRoles: ['CAMPUS_TEACHER']
-  },
-  {
-    title: 'Resources',
-    path: '/teacher/resources',
-    icon: BookOpen,
-    requiredRoles: ['CAMPUS_TEACHER']
-  },
-  {
-    title: 'Communications',
-    path: '/teacher/communications',
-    icon: MessageSquare,
-    requiredRoles: ['CAMPUS_TEACHER']
-  },
-  {
-    title: 'Reports',
-    path: '/teacher/reports',
+    title: 'AI Studio',
+    path: '/teacher/ai-studio',
     icon: FileText,
+    requiredRoles: ['CAMPUS_TEACHER']
+  },
+  {
+    title: 'Content Studio',
+    path: '/teacher/content-studio',
+    icon: BookOpen,
     requiredRoles: ['CAMPUS_TEACHER']
   },
   {

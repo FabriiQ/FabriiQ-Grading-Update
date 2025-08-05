@@ -34,16 +34,16 @@ export interface NavigationOptions {
   institutionId?: string;
 }
 
-// Default navigation options
+// Default navigation options - optimized for performance
 const DEFAULT_OPTIONS: NavigationOptions = {
   preserveScroll: true,
-  useTransitions: true,
+  useTransitions: false, // Disabled by default for better performance
   direction: 'forward',
-  hapticFeedback: true,
+  hapticFeedback: false, // Disabled by default to reduce overhead
   newTab: false,
   hardNavigation: false,
-  navigationTimeout: 5000, // 5 seconds timeout by default
-  includeInstitution: true, // Include institution context by default
+  navigationTimeout: 3000, // Reduced to 3 seconds for faster timeout
+  includeInstitution: false, // Disabled by default to prevent context lookup delays
 };
 
 /**
@@ -100,7 +100,7 @@ export function useNavigationHandler() {
 
     // Debounce navigation - prevent multiple rapid clicks
     const now = Date.now();
-    if (now - lastNavigationTimeRef.current < 150) { // 150ms debounce for better responsiveness
+    if (now - lastNavigationTimeRef.current < 100) { // Reduced to 100ms for faster response
       console.log('[NavigationHandler] Navigation debounced, ignoring request');
       return false;
     }
@@ -120,7 +120,7 @@ export function useNavigationHandler() {
         // Only prepend if not already present
         if (!href.startsWith(`/${institutionId}/`)) {
           finalHref = `/${institutionId}${href}`;
-          console.log(`[NavigationHandler] Added institution context: ${finalHref}`);
+          // Removed console.log to reduce overhead
         }
       }
     }

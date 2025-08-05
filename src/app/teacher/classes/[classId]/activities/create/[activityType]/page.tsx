@@ -2,7 +2,7 @@ import { getSessionCache } from "@/utils/session-cache";
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { prisma } from "@/server/db";
-import { UnifiedActivityCreator } from "@/features/activties/components/UnifiedActivityCreator";
+import { CreateSpecificActivityClient } from "./create-specific-activity-client";
 
 export const metadata: Metadata = {
   title: "Create Activity",
@@ -73,18 +73,10 @@ export default async function CreateSpecificActivityPage({
         <h1 className="text-2xl font-bold">Create {activityType.replace('-', ' ')} Activity</h1>
         <p className="text-muted-foreground">Class: {classDetails.name}</p>
       </div>
-      
-      <UnifiedActivityCreator
+
+      <CreateSpecificActivityClient
         activityTypeId={activityType}
         classId={classId}
-        onSuccess={() => {
-          // Navigate back to activities list
-          window.location.href = `/teacher/classes/${classId}/activities`;
-        }}
-        onCancel={() => {
-          // Navigate back to activity type selector
-          window.location.href = `/teacher/classes/${classId}/activities/create`;
-        }}
       />
     </div>
   );

@@ -638,7 +638,7 @@ export default function ClassProfilePage() {
   const { data: totalActivitiesData } = api.class.listActivities.useQuery(
     {
       classId,
-      status: "ACTIVE" as SystemStatus,
+      status: SystemStatus.ACTIVE,
     },
     {
       enabled: !!classId,

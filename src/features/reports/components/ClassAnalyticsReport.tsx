@@ -175,7 +175,7 @@ export function ClassAnalyticsReport({ classId, period, data, isLoading }: Class
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={analyticsData.bloomsDistribution}
+                  data={analyticsData.bloomsDistribution || []}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -184,16 +184,16 @@ export function ClassAnalyticsReport({ classId, period, data, isLoading }: Class
                   fill="#8884d8"
                   dataKey="count"
                 >
-                  {analyticsData.bloomsDistribution.map((entry: any, index: number) => (
+                  {(analyticsData.bloomsDistribution || []).map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
-            
+
             <div className="space-y-3">
-              {analyticsData.bloomsDistribution.map((level: any, index: number) => (
+              {(analyticsData.bloomsDistribution || []).map((level: any, index: number) => (
                 <div key={index} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{level.level}</span>
@@ -217,7 +217,7 @@ export function ClassAnalyticsReport({ classId, period, data, isLoading }: Class
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <ScatterChart data={analyticsData.performanceCorrelation}>
+            <ScatterChart data={analyticsData.performanceCorrelation || []}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="timeSpent" name="Time Spent (minutes)" />
               <YAxis dataKey="performance" name="Performance %" />
@@ -237,7 +237,7 @@ export function ClassAnalyticsReport({ classId, period, data, isLoading }: Class
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <ComposedChart data={analyticsData.weeklyProgress}>
+              <ComposedChart data={analyticsData.weeklyProgress || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="week" />
                 <YAxis />
@@ -257,7 +257,7 @@ export function ClassAnalyticsReport({ classId, period, data, isLoading }: Class
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {analyticsData.learningPatterns.map((pattern: any, index: number) => (
+              {(analyticsData.learningPatterns || []).map((pattern: any, index: number) => (
                 <div key={index} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{pattern.pattern}</span>
@@ -285,7 +285,7 @@ export function ClassAnalyticsReport({ classId, period, data, isLoading }: Class
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {analyticsData.riskFactors.map((risk: any, index: number) => (
+              {(analyticsData.riskFactors || []).map((risk: any, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 rounded-lg border">
                   <div>
                     <p className="font-medium">{risk.factor}</p>
@@ -312,7 +312,7 @@ export function ClassAnalyticsReport({ classId, period, data, isLoading }: Class
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {analyticsData.strengths.map((strength: any, index: number) => (
+              {(analyticsData.strengths || []).map((strength: any, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 rounded-lg border">
                   <div>
                     <p className="font-medium">{strength.area}</p>

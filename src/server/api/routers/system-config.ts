@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '@/server/api/trpc';
 import { TRPCError } from '@trpc/server';
+import { ProcedureCacheHelpers } from '../cache/advanced-procedure-cache';
 
 /**
  * System Configuration Router
@@ -121,39 +122,48 @@ export const systemConfigRouter = createTRPCRouter({
     }),
 
   /**
-   * Get branding configuration
+   * Get branding configuration with caching
    */
   getBranding: protectedProcedure
     .query(async ({ ctx }) => {
       try {
-        // Test database connection first
-        await ctx.prisma.$queryRaw`SELECT 1`;
+        return await ProcedureCacheHelpers.cacheSystemConfig(
+          'branding:config',
+          async () => {
+            // Test database connection first
+            await ctx.prisma.$queryRaw`SELECT 1`;
 
-        const brandingConfigs = await ctx.prisma.systemConfig.findMany({
-          where: {
-            category: 'branding',
-          },
-        });
+            const brandingConfigs = await ctx.prisma.systemConfig.findMany({
+              where: {
+                category: 'branding',
+              },
+              select: {
+                key: true,
+                value: true,
+              },
+            });
 
-        // Convert array of configs to object
-        const branding: any = {};
-        brandingConfigs.forEach(config => {
-          branding[config.key] = config.value;
-        });
+            // Convert array of configs to object
+            const branding: any = {};
+            brandingConfigs.forEach(config => {
+              branding[config.key] = config.value;
+            });
 
-        // Return default values if no branding configs exist
-        if (Object.keys(branding).length === 0) {
-          return {
-            'branding.systemName': 'FabriiQ LXP',
-            'branding.logoUrl': '',
-            'branding.faviconUrl': '',
-            'branding.primaryColor': '#3B82F6',
-            'branding.secondaryColor': '#64748B',
-            'branding.footerText': '© 2024 FabriiQ. All rights reserved.',
-          };
-        }
+            // Return default values if no branding configs exist
+            if (Object.keys(branding).length === 0) {
+              return {
+                'branding.systemName': 'FabriiQ LXP',
+                'branding.logoUrl': '',
+                'branding.faviconUrl': '',
+                'branding.primaryColor': '#3B82F6',
+                'branding.secondaryColor': '#64748B',
+                'branding.footerText': '© 2024 FabriiQ. All rights reserved.',
+              };
+            }
 
-        return branding;
+            return branding;
+          }
+        );
       } catch (error) {
         console.error('Error fetching branding configuration:', error);
 

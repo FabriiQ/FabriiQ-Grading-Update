@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/components/ui/feedback/toast';
 import { api } from '@/trpc/react';
 import { ActivityViewer, ActivityEditor } from '@/components/teacher/activities-new';
 import {
@@ -29,7 +29,7 @@ export default function ActivityDetailPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // Validate activityId before making the API call
-  const isValidId = activityId && activityId !== 'grade' && activityId !== 'edit' && activityId.trim() !== '';
+  const isValidId = Boolean(activityId && activityId !== 'grade' && activityId !== 'edit' && activityId.trim() !== '');
 
   // Fetch activity
   const { data: activity, isLoading, error, refetch } = api.activity.getById.useQuery({
@@ -38,6 +38,15 @@ export default function ActivityDetailPage() {
     // Only enable the query if we have a valid ID
     enabled: isValidId
   });
+
+  // Check if activity has attempts (submissions)
+  const { data: attemptsData } = api.activityGrade.getByActivity.useQuery({
+    activityId: activityId
+  }, {
+    enabled: isValidId && !!activity
+  });
+
+  const hasAttempts = attemptsData && attemptsData.length > 0;
 
   // Update activity mutation
   const updateActivity = api.activity.update.useMutation({
@@ -78,6 +87,14 @@ export default function ActivityDetailPage() {
 
   // Handle edit
   const handleEdit = () => {
+    if (hasAttempts) {
+      toast({
+        title: "Cannot Edit Activity",
+        description: "This activity cannot be edited because students have already submitted attempts.",
+        variant: "error",
+      });
+      return;
+    }
     setMode('edit');
   };
 

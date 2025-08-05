@@ -58,7 +58,7 @@ export function ActivityList({ classId, className }: ActivityListProps) {
   const { data: activities, isLoading, refetch } = api.class.listActivities.useQuery(
     {
       classId,
-      status: 'ACTIVE',
+      status: SystemStatus.ACTIVE,
     },
     {
       refetchOnWindowFocus: false,

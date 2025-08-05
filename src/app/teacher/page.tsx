@@ -286,10 +286,10 @@ export default async function TeacherDashboardPage() {
               ))}
               <div className="pt-2">
                 <Link
-                  href="/teacher/assessments"
+                  href="/teacher/classes"
                   className="text-sm text-primary-600 hover:underline"
                 >
-                  View all assessments
+                  View all classes
                 </Link>
               </div>
             </div>

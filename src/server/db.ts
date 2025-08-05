@@ -97,6 +97,7 @@ const queryCache = new LRUCache<any>(50000, 5 * 60 * 1000);    // 50k entries, 5
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
   serverInitialized: boolean | undefined;
+  dbConfigLogged: boolean | undefined;
 };
 
 // Create a new Prisma client or reuse the existing one with optimized configuration
@@ -151,12 +152,12 @@ function getDatabaseUrlWithPooling(): string {
 
   // Production-optimized connection pooling parameters for login performance
   const poolingParams = {
-    'connection_limit': process.env.DATABASE_CONNECTION_LIMIT || '75',    // Increased for login concurrency
-    'pool_timeout': process.env.DATABASE_POOL_TIMEOUT || '3',             // Faster timeout for login
-    'connect_timeout': process.env.DATABASE_CONNECT_TIMEOUT || '15',      // Reduced connect timeout
-    'pool_max_idle_time': process.env.DATABASE_MAX_IDLE_TIME || '120',    // 2 minutes idle time
-    'statement_timeout': process.env.DATABASE_STATEMENT_TIMEOUT || '15000', // 15 second query timeout for login
-    'idle_in_transaction_session_timeout': '5000',                        // 5 second idle transaction timeout
+    'connection_limit': process.env.DATABASE_CONNECTION_LIMIT || '100',   // Increased for better concurrency
+    'pool_timeout': process.env.DATABASE_POOL_TIMEOUT || '15',            // Increased to 15s from 5s to prevent timeouts
+    'connect_timeout': process.env.DATABASE_CONNECT_TIMEOUT || '30',      // Increased connect timeout
+    'pool_max_idle_time': process.env.DATABASE_MAX_IDLE_TIME || '300',    // 5 minutes idle time
+    'statement_timeout': process.env.DATABASE_STATEMENT_TIMEOUT || '30000', // 30 second query timeout for complex queries
+    'idle_in_transaction_session_timeout': '10000',                       // 10 second idle transaction timeout
   };
 
   // Add connection pooling parameters if not already present
@@ -166,13 +167,17 @@ function getDatabaseUrlWithPooling(): string {
     }
   });
 
-  logger.debug('Database URL configured with connection pooling', {
-    connectionLimit: url.searchParams.get('connection_limit'),
-    poolTimeout: url.searchParams.get('pool_timeout'),
-    connectTimeout: url.searchParams.get('connect_timeout'),
-    maxIdleTime: url.searchParams.get('pool_max_idle_time'),
-    statementTimeout: url.searchParams.get('statement_timeout'),
-  });
+  // Only log once to prevent spam
+  if (!globalForPrisma.dbConfigLogged) {
+    logger.debug('Database URL configured with connection pooling', {
+      connectionLimit: url.searchParams.get('connection_limit'),
+      poolTimeout: url.searchParams.get('pool_timeout'),
+      connectTimeout: url.searchParams.get('connect_timeout'),
+      maxIdleTime: url.searchParams.get('pool_max_idle_time'),
+      statementTimeout: url.searchParams.get('statement_timeout'),
+    });
+    globalForPrisma.dbConfigLogged = true;
+  }
 
   return url.toString();
 }
@@ -269,24 +274,36 @@ export const cachedQueries = {
     const cached = sessionCache.get(cacheKey);
     if (cached) return cached;
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        username: true,
-        userType: true,
-        status: true,
-        primaryCampusId: true,
-        institutionId: true,
-      },
-    });
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          username: true,
+          userType: true,
+          status: true,
+          primaryCampusId: true,
+          institutionId: true,
+        },
+      });
 
-    if (user) {
-      sessionCache.set(cacheKey, user);
+      if (user) {
+        sessionCache.set(cacheKey, user);
+      }
+      return user;
+    } catch (error) {
+      logger.error('[AUTH] Error fetching cached session data', {
+        error: {
+          name: error instanceof Error ? error.name : 'Unknown',
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        }
+      });
+      // Return null instead of throwing to prevent session callback failures
+      return null;
     }
-    return user;
   },
 
   // Generic query cache helper for any Prisma query
@@ -354,6 +371,19 @@ export const cachedQueries = {
 
   invalidateSessionCache(sessionId: string) {
     sessionCache.delete(`session:${sessionId}`);
+  },
+
+  // Invalidate activities cache for a specific class
+  invalidateActivitiesCache(classId: string) {
+    // Get all cache keys and delete those that match the pattern
+    const keys = Array.from(queryCache['cache'].keys());
+    const activitiesKeys = keys.filter(key => key.startsWith(`activities:${classId}:`));
+    activitiesKeys.forEach(key => queryCache.delete(key));
+  },
+
+  // Clear all query cache (use sparingly)
+  clearQueryCache() {
+    queryCache.clear();
   },
 };
 

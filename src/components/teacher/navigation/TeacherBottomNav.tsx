@@ -39,17 +39,12 @@ export function TeacherBottomNav() {
     {
       icon: <FileText className="h-5 w-5" />,
       label: 'AI Studio',
-      href: '/teacher/content-studio'
+      href: '/teacher/ai-studio'
     },
     {
       icon: <Calendar className="h-5 w-5" />,
       label: 'Schedule',
       href: '/teacher/schedule'
-    },
-    {
-      icon: <ClipboardList className="h-5 w-5" />,
-      label: 'Assessments',
-      href: '/teacher/assessments'
     }
   ];
 

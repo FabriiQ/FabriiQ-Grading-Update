@@ -91,11 +91,12 @@ export async function initBackgroundJobs(prisma: PrismaClient): Promise<void> {
 }
 
 /**
- * Set up shutdown handlers for graceful cleanup
+ * Set up shutdown handlers for graceful cleanup using centralized manager
  */
 function setupShutdownHandlers(): void {
-  if (!process.listeners('SIGTERM').length) {
-    process.on('SIGTERM', () => {
+  // Use centralized process event manager to prevent duplicate handlers
+  import('@/utils/process-event-manager').then(({ addProcessHandler }) => {
+    addProcessHandler('SIGTERM', () => {
       logger.info('SIGTERM received, shutting down background jobs system');
       try {
         shutdownBackgroundJobs();
@@ -103,10 +104,8 @@ function setupShutdownHandlers(): void {
         logger.error('Error during SIGTERM shutdown', { error });
       }
     });
-  }
 
-  if (!process.listeners('SIGINT').length) {
-    process.on('SIGINT', () => {
+    addProcessHandler('SIGINT', () => {
       logger.info('SIGINT received, shutting down background jobs system');
       try {
         shutdownBackgroundJobs();
@@ -114,5 +113,16 @@ function setupShutdownHandlers(): void {
         logger.error('Error during SIGINT shutdown', { error });
       }
     });
-  }
+  }).catch(() => {
+    // Fallback to direct process listeners if import fails
+    if (!process.listeners('SIGTERM').length) {
+      process.on('SIGTERM', () => {
+        try {
+          shutdownBackgroundJobs();
+        } catch (error) {
+          logger.error('Error during SIGTERM shutdown', { error });
+        }
+      });
+    }
+  });
 }

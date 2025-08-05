@@ -2,7 +2,7 @@ import { getSessionCache } from "@/utils/session-cache";
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { prisma } from "@/server/db";
-import { ActivityTypeSelectorGrid } from "@/features/activties";
+import { CreateActivityClient } from "./create-activity-client";
 
 export const metadata: Metadata = {
   title: "Create Activity",
@@ -69,12 +69,11 @@ export default async function CreateActivityPage({
 
   return (
     <div className="container mx-auto py-6">
-      <ActivityTypeSelectorGrid
-        onSelect={(activityType) => {
-          // Navigate to unified activity creator with selected type
-          window.location.href = `/teacher/classes/${classId}/activities/create/${activityType.id}`;
-        }}
-      />
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Create Activity</h1>
+        <p className="text-muted-foreground">Class: {classDetails.name}</p>
+      </div>
+      <CreateActivityClient classId={classId} />
     </div>
   );
 }

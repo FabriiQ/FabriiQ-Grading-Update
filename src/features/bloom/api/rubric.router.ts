@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '@/server/api/trpc';
 import { TRPCError } from '@trpc/server';
 import { BloomsTaxonomyLevel, RubricType } from '../types';
+import { ProcedureCacheHelpers } from '@/server/api/cache/advanced-procedure-cache';
 
 // Enum schemas for zod validation
 const BloomsTaxonomyLevelEnum = z.enum([
@@ -28,6 +29,45 @@ const RubricTypeEnum = z.enum([
  * Rubric Router
  */
 export const rubricRouter = createTRPCRouter({
+  /**
+   * Get all rubrics with caching
+   */
+  getAll: protectedProcedure
+    .query(async ({ ctx }) => {
+      try {
+        return await ProcedureCacheHelpers.cacheSystemConfig(
+          'rubrics:all',
+          async () => {
+            return ctx.prisma.rubric.findMany({
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                type: true,
+                maxScore: true,
+                createdAt: true,
+                _count: {
+                  select: {
+                    criteria: true,
+                    performanceLevels: true
+                  }
+                }
+              },
+              orderBy: {
+                createdAt: 'desc'
+              },
+              take: 100 // Limit to prevent excessive data loading
+            });
+          }
+        );
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to fetch rubrics: ${(error as Error).message}`
+        });
+      }
+    }),
+
   /**
    * Get rubric criteria by topic ID
    */

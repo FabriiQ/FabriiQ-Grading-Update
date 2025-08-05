@@ -72,6 +72,24 @@ export function useAdvancedLoading(options: LoadingOptions = {}) {
     return ((stageIndex + 1) / stages.length) * 100;
   }, [stages]);
 
+  // Store callbacks in refs to avoid recreating them
+  const onStageChangeRef = useRef(onStageChange);
+  const onCompleteRef = useRef(onComplete);
+  const onErrorRef = useRef(onError);
+
+  // Update refs when callbacks change
+  useEffect(() => {
+    onStageChangeRef.current = onStageChange;
+  }, [onStageChange]);
+
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
   // Start loading with staged progression
   const startLoading = useCallback(async () => {
     const startTime = Date.now();
@@ -91,12 +109,12 @@ export function useAdvancedLoading(options: LoadingOptions = {}) {
     const progressThroughStages = () => {
       const currentStageIndex = stageIndexRef.current;
       const currentStageConfig = stages[currentStageIndex];
-      
+
       if (!currentStageConfig) {
         // All stages complete
         const totalDuration = Date.now() - startTime;
         const remainingTime = Math.max(0, minDuration - totalDuration);
-        
+
         setTimeout(() => {
           setLoadingState(prev => ({
             ...prev,
@@ -106,10 +124,10 @@ export function useAdvancedLoading(options: LoadingOptions = {}) {
             isLoading: false,
             duration: Date.now() - startTime,
           }));
-          
-          onComplete?.();
+
+          onCompleteRef.current?.();
         }, remainingTime);
-        
+
         return;
       }
 
@@ -122,7 +140,7 @@ export function useAdvancedLoading(options: LoadingOptions = {}) {
         duration: Date.now() - startTime,
       }));
 
-      onStageChange?.(currentStageConfig.stage);
+      onStageChangeRef.current?.(currentStageConfig.stage);
 
       // Move to next stage after duration
       timeoutRef.current = setTimeout(() => {
@@ -132,15 +150,17 @@ export function useAdvancedLoading(options: LoadingOptions = {}) {
     };
 
     progressThroughStages();
-  }, [stages, minDuration, calculateProgress, onStageChange, onComplete]);
+  }, [stages, minDuration, calculateProgress]);
 
   // Stop loading with error
   const stopWithError = useCallback((error: string) => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
+      timeoutRef.current = undefined;
     }
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
+      intervalRef.current = undefined;
     }
 
     setLoadingState(prev => ({
@@ -151,16 +171,18 @@ export function useAdvancedLoading(options: LoadingOptions = {}) {
       duration: prev.startTime ? Date.now() - prev.startTime : 0,
     }));
 
-    onError?.(error);
-  }, [onError]);
+    onErrorRef.current?.(error);
+  }, []);
 
   // Force complete loading
   const forceComplete = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
+      timeoutRef.current = undefined;
     }
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
+      intervalRef.current = undefined;
     }
 
     setLoadingState(prev => ({
@@ -172,8 +194,8 @@ export function useAdvancedLoading(options: LoadingOptions = {}) {
       duration: prev.startTime ? Date.now() - prev.startTime : 0,
     }));
 
-    onComplete?.();
-  }, [onComplete]);
+    onCompleteRef.current?.();
+  }, []);
 
   // Reset loading state
   const reset = useCallback(() => {
@@ -209,8 +231,8 @@ export function useAdvancedLoading(options: LoadingOptions = {}) {
       duration: prev.startTime ? Date.now() - prev.startTime : 0,
     }));
 
-    onStageChange?.(stage);
-  }, [calculateProgress, onStageChange]);
+    onStageChangeRef.current?.(stage);
+  }, [calculateProgress]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -223,6 +245,8 @@ export function useAdvancedLoading(options: LoadingOptions = {}) {
         clearInterval(intervalRef.current);
         intervalRef.current = undefined;
       }
+      // Reset stage index
+      stageIndexRef.current = 0;
     };
   }, []);
 

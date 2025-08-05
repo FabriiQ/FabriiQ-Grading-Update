@@ -17,31 +17,31 @@ export const CACHE_CONFIG = {
   // User-specific data (notifications, profile)
   USER_DATA: {
     ttl: 2 * 60 * 1000,      // 2 minutes
-    maxSize: 10000,
+    max: 10000,              // Fixed: use 'max' instead of 'maxSize'
   },
-  
+
   // Analytics and metrics (slower changing)
   ANALYTICS: {
     ttl: 10 * 60 * 1000,     // 10 minutes
-    maxSize: 5000,
+    max: 5000,               // Fixed: use 'max' instead of 'maxSize'
   },
-  
+
   // Class and teacher data
   CLASS_DATA: {
     ttl: 5 * 60 * 1000,      // 5 minutes
-    maxSize: 15000,
+    max: 15000,              // Fixed: use 'max' instead of 'maxSize'
   },
-  
+
   // Leaderboards and rankings
   LEADERBOARDS: {
     ttl: 3 * 60 * 1000,      // 3 minutes
-    maxSize: 8000,
+    max: 8000,               // Fixed: use 'max' instead of 'maxSize'
   },
-  
+
   // System configuration (rarely changes)
   SYSTEM_CONFIG: {
     ttl: 30 * 60 * 1000,     // 30 minutes
-    maxSize: 1000,
+    max: 1000,               // Fixed: use 'max' instead of 'maxSize'
   }
 };
 
@@ -237,6 +237,11 @@ export const ProcedureCacheHelpers = {
   async cacheTeacherStats<T>(teacherId: string, fetchFn: () => Promise<T>): Promise<T> {
     const cacheKey = `teacher-stats:${teacherId}`;
     return AdvancedProcedureCache.cacheResult(cacheKey, fetchFn, 'ANALYTICS');
+  },
+
+  // System configuration (branding, settings, etc.)
+  async cacheSystemConfig<T>(cacheKey: string, fetchFn: () => Promise<T>): Promise<T> {
+    return AdvancedProcedureCache.cacheResult(cacheKey, fetchFn, 'SYSTEM_CONFIG');
   },
 
   // Attendance stats

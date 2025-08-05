@@ -7,11 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/core/skeleton';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth } from 'date-fns';
+import { format, addMonths, subMonths } from 'date-fns';
+import { startOfMonth } from 'date-fns/startOfMonth';
+import { endOfMonth } from 'date-fns/endOfMonth';
 import { CalendarIcon, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { UserType } from '@prisma/client';
-import { toast } from '@/components/ui/toast';
+import { UserType } from '@/server/api/constants';
+import { useToast } from '@/components/ui/use-toast';
 
 interface LessonPlanCalendarProps {
   teacherId?: string;
@@ -21,8 +23,55 @@ interface LessonPlanCalendarProps {
 
 export default function LessonPlanCalendar({ teacherId, classId, userType }: LessonPlanCalendarProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
+
+  // Export to calendar function (using query since it's a query procedure)
+  const handleExportCalendar = async (eventId: string) => {
+    try {
+      // Create a vanilla tRPC client for direct queries
+      const { createTRPCClient, httpBatchLink } = await import('@trpc/client');
+      const superjson = await import('superjson');
+
+      const client = createTRPCClient({
+        transformer: superjson.default,
+        links: [
+          httpBatchLink({
+            url: '/api/trpc',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }),
+        ],
+      });
+
+      const icalData = await (client as any).lessonPlan.exportToCalendar.query(eventId);
+
+      // Create a blob and download it
+      const blob = new Blob([icalData], { type: 'text/calendar' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `lesson-plan-${eventId}.ics`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: 'Calendar exported',
+        description: 'The lesson plan has been exported to your calendar',
+      });
+    } catch (error) {
+      console.error('Error exporting calendar:', error);
+      toast({
+        title: 'Export failed',
+        description: 'Failed to export the lesson plan to calendar',
+        variant: 'error'
+      });
+    }
+  };
   
   // Calculate date range based on current date and view
   const startDate = startOfMonth(currentDate);
@@ -55,9 +104,11 @@ export default function LessonPlanCalendar({ teacherId, classId, userType }: Les
   // Handle event click
   const handleEventClick = (event: any) => {
     if (event.type === 'LESSON_PLAN') {
-      // Navigate to the lesson plan view
+      // Navigate to the lesson plan view - now class-based
       if (userType === UserType.CAMPUS_TEACHER) {
-        router.push(`/teacher/lesson-plans/${event.id}`);
+        // For teachers, navigate to class-based lesson plan view
+        // We need the classId to construct the proper URL
+        router.push(`/teacher/classes/${event.classId}/lesson-plans/${event.id}`);
       } else if (userType === UserType.CAMPUS_COORDINATOR) {
         router.push(`/coordinator/lesson-plans/${event.id}`);
       } else if (userType === UserType.CAMPUS_ADMIN) {
@@ -66,41 +117,14 @@ export default function LessonPlanCalendar({ teacherId, classId, userType }: Les
     }
   };
   
-  // Handle export to calendar
-  const handleExportCalendar = async (eventId: string) => {
-    try {
-      const icalData = await api.lessonPlan.exportToCalendar.query(eventId);
-      
-      // Create a blob and download it
-      const blob = new Blob([icalData], { type: 'text/calendar' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `lesson-plan-${eventId}.ics`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      toast({
-        title: 'Calendar exported',
-        description: 'The lesson plan has been exported to your calendar',
-      });
-    } catch (error) {
-      console.error('Error exporting calendar:', error);
-      toast({
-        title: 'Export failed',
-        description: 'Failed to export the lesson plan to calendar',
-        variant: 'error',
-      });
-    }
-  };
+
   
   // Format events for the calendar component
   const calendarEvents = events?.map(event => ({
     ...event,
     start: new Date(event.start),
     end: new Date(event.end),
+    type: 'ACADEMIC_EVENT' as const, // Map lesson plans to academic events
     onExport: () => handleExportCalendar(event.id)
   })) || [];
   

@@ -114,7 +114,7 @@ export function ClassPerformanceReport({ classId, period, data, isLoading }: Cla
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {performanceData.topPerformers.slice(0, 3).map((student: any, index: number) => (
+              {(performanceData.topPerformers || []).slice(0, 3).map((student: any, index: number) => (
                 <div key={index} className="flex items-center justify-between">
                   <span className="text-sm font-medium">{student.name}</span>
                   <div className="flex items-center gap-2">
@@ -136,7 +136,7 @@ export function ClassPerformanceReport({ classId, period, data, isLoading }: Cla
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {performanceData.strugglingStudents.map((student: any, index: number) => (
+              {(performanceData.strugglingStudents || []).map((student: any, index: number) => (
                 <div key={index} className="flex items-center justify-between">
                   <span className="text-sm font-medium">{student.name}</span>
                   <div className="flex items-center gap-2">
@@ -195,7 +195,7 @@ export function ClassPerformanceReport({ classId, period, data, isLoading }: Cla
                   fill="#8884d8"
                   dataKey="count"
                 >
-                  {performanceData.scoreDistribution.map((entry: any, index: number) => (
+                  {(performanceData.scoreDistribution || []).map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -232,7 +232,7 @@ export function ClassPerformanceReport({ classId, period, data, isLoading }: Cla
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {performanceData.scoreDistribution.map((range: any, index: number) => (
+            {(performanceData.scoreDistribution || []).map((range: any, index: number) => (
               <div key={index} className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">{range.range}</span>

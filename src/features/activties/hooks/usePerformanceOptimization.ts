@@ -16,29 +16,39 @@ export function usePerformanceOptimization() {
   const renderTimes = useRef<number[]>([]);
   const lastRenderStart = useRef<number>(0);
 
-  // Track render performance
+  // Track render performance - use useRef to avoid infinite loops
+  const renderStartRef = useRef<number>(0);
+
   useEffect(() => {
-    const renderStart = performance.now();
-    lastRenderStart.current = renderStart;
-
-    return () => {
-      const renderTime = performance.now() - renderStart;
-      renderTimes.current.push(renderTime);
-      
-      // Keep only last 50 render times
-      if (renderTimes.current.length > 50) {
-        renderTimes.current.shift();
-      }
-
-      const averageRenderTime = renderTimes.current.reduce((a, b) => a + b, 0) / renderTimes.current.length;
-      
-      setMetrics(prev => ({
-        renderCount: prev.renderCount + 1,
-        lastRenderTime: renderTime,
-        averageRenderTime,
-      }));
-    };
+    renderStartRef.current = performance.now();
   });
+
+  useEffect(() => {
+    return () => {
+      if (renderStartRef.current > 0) {
+        const renderTime = performance.now() - renderStartRef.current;
+        renderTimes.current.push(renderTime);
+
+        // Keep only last 50 render times
+        if (renderTimes.current.length > 50) {
+          renderTimes.current.shift();
+        }
+
+        const averageRenderTime = renderTimes.current.reduce((a, b) => a + b, 0) / renderTimes.current.length;
+
+        // Use a ref to track if we should update metrics to prevent infinite loops
+        const shouldUpdate = renderTimes.current.length % 5 === 0; // Only update every 5 renders
+
+        if (shouldUpdate) {
+          setMetrics(prev => ({
+            renderCount: prev.renderCount + 5,
+            lastRenderTime: renderTime,
+            averageRenderTime,
+          }));
+        }
+      }
+    };
+  }, []); // Empty dependency array to prevent infinite loops
 
   // Preload data
   const preloadData = useCallback(async (keys: string[]) => {

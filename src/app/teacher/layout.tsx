@@ -3,7 +3,7 @@ import { getSessionCache } from "@/utils/session-cache";
 import { UserType } from "@prisma/client";
 import { logger } from "@/server/api/utils/logger";
 import { TeacherLayoutClient } from "@/components/teacher/layout/TeacherLayoutClient";
-import { prisma } from "@/server/db";
+import { cachedQueries } from "@/server/db";
 
 export default async function TeacherLayout({
   children,
@@ -26,27 +26,59 @@ export default async function TeacherLayout({
       return redirect("/unauthorized");
     }
 
-    // Get teacher profile from database
+    // Get teacher profile from database using cached query
     const user = session.user;
 
-    // Fetch the teacher profile from the database
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        profileData: true,
-        teacherProfile: true
-      }
-    });
+    // Use cached query to fetch the teacher profile from the database
+    const dbUser = await cachedQueries.getCachedQuery(
+      `teacher-profile:${user.id}`,
+      async () => {
+        // Use a more efficient query with timeout protection
+        const result = await Promise.race([
+          cachedQueries.getUserWithCache(user.id),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Query timeout')), 5000)
+          )
+        ]);
+
+        if (!result) return null;
+
+        // Get teacher profile separately if user exists
+        if (result.userType === UserType.CAMPUS_TEACHER || result.userType === 'TEACHER') {
+          try {
+            const teacherProfile = await cachedQueries.getCachedQuery(
+              `teacher-profile-data:${user.id}`,
+              async () => {
+                const { prisma } = await import("@/server/db");
+                return await prisma.teacherProfile.findFirst({
+                  where: { userId: user.id },
+                  select: { id: true }
+                });
+              },
+              2 * 60 * 1000 // 2 minute cache
+            );
+
+            return {
+              ...result,
+              teacherProfile
+            };
+          } catch (error) {
+            logger.warn("Failed to fetch teacher profile", { userId: user.id, error });
+            return { ...result, teacherProfile: null };
+          }
+        }
+
+        return { ...result, teacherProfile: null };
+      },
+      5 * 60 * 1000 // 5 minute cache
+    );
 
     if (!dbUser) {
       logger.error("User not found in database", { userId: user.id });
       return redirect("/login");
     }
 
-    if (!dbUser.teacherProfile) {
+    if (!dbUser.teacherProfile?.id) {
       logger.error("Teacher profile not found in database", { userId: user.id });
       return redirect("/unauthorized");
     }

@@ -69,18 +69,20 @@ export function useTeacherPerformanceOptimization(
     memoryUsage: 0,
   });
 
-  // Track renders
+  // Track renders - use refs to avoid infinite loops
   useEffect(() => {
     renderCount.current++;
     const now = Date.now();
     const timeSinceLastRender = now - lastRenderTime.current;
     lastRenderTime.current = now;
 
-    // Update performance metrics
-    setPerformanceMetrics(prev => ({
-      ...prev,
-      renderCount: renderCount.current,
-    }));
+    // Only update performance metrics every 10 renders to prevent infinite loops
+    if (renderCount.current % 10 === 0) {
+      setPerformanceMetrics(prev => ({
+        ...prev,
+        renderCount: renderCount.current,
+      }));
+    }
 
     // Warn about excessive re-renders in development
     if (process.env.NODE_ENV === 'development') {
@@ -96,7 +98,7 @@ export function useTeacherPerformanceOptimization(
         );
       }
     }
-  });
+  }, []); // Empty dependency array to prevent infinite loops
 
   // Cache utilities
   const getCachedData = useCallback((key: string) => {

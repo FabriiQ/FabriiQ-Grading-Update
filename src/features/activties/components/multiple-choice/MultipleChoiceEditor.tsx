@@ -6,6 +6,7 @@ import {
   MultipleChoiceActivity,
   MultipleChoiceQuestion,
   MultipleChoiceOption,
+  createDefaultMultipleChoiceActivity,
   createDefaultMultipleChoiceQuestion,
   createDefaultMultipleChoiceOption
 } from '../../models/multiple-choice';
@@ -21,10 +22,14 @@ import { AIQuestionGeneratorButton, GeneratedQuestionsManager, GeneratedQuestion
 import { BloomsTaxonomyLevel } from '@/features/bloom/types/bloom-taxonomy';
 
 export interface MultipleChoiceEditorProps {
-  activity: MultipleChoiceActivity;
-  onChange: (activity: MultipleChoiceActivity) => void;
+  activity?: MultipleChoiceActivity;
+  onChange?: (activity: MultipleChoiceActivity) => void;
   onSave?: (activity: MultipleChoiceActivity) => void;
   className?: string;
+  // New props for integration with UnifiedActivityCreator
+  config?: any;
+  onConfigChange?: (config: any) => void;
+  standalone?: boolean; // Whether to render as standalone component with its own form
 }
 
 /**
@@ -41,13 +46,20 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({
   activity,
   onChange,
   onSave,
-  className
+  className,
+  config,
+  onConfigChange,
+  standalone = true,
 }) => {
   // Get responsive state
   const { isMobile } = useResponsive();
 
+  // Initialize with default values - support both prop patterns
+  const defaultActivity = createDefaultMultipleChoiceActivity();
+  const mergedActivity = activity ? activity : (config ? { ...defaultActivity, ...config } : defaultActivity);
+
   // Local state for the activity and UI state
-  const [localActivity, setLocalActivity] = useState<MultipleChoiceActivity>(activity);
+  const [localActivity, setLocalActivity] = useState<MultipleChoiceActivity>(mergedActivity);
   const [lastAddedQuestionId, setLastAddedQuestionId] = useState<string | null>(null);
   const [lastAddedOptionId, setLastAddedOptionId] = useState<{questionId: string, optionId: string} | null>(null);
 
@@ -59,8 +71,14 @@ export const MultipleChoiceEditor: React.FC<MultipleChoiceEditorProps> = ({
   const updateActivity = useCallback((updates: Partial<MultipleChoiceActivity>) => {
     const updatedActivity = { ...localActivity, ...updates };
     setLocalActivity(updatedActivity);
-    onChange(updatedActivity);
-  }, [localActivity, onChange]);
+
+    // Support both prop patterns
+    if (onChange) {
+      onChange(updatedActivity);
+    } else if (onConfigChange) {
+      onConfigChange(updatedActivity);
+    }
+  }, [localActivity, onChange, onConfigChange]);
 
   // Handle title change
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

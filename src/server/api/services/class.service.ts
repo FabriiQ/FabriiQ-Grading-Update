@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { PrismaClient, Prisma, SystemStatus, AttendanceStatusType, DayOfWeek, PeriodType, Activity, ActivityGrade, SubmissionStatus, ActivityPurpose, LearningActivityType, AssessmentType } from '@prisma/client';
 import { GradeService } from './grade.service';
+import { cachedQueries } from '@/server/db';
 import {
   CreateClassInput,
   UpdateClassInput,
@@ -261,7 +262,7 @@ export class ClassService {
 
   // Activity Management
   async createActivity(data: CreateActivityInput): Promise<Activity> {
-    return this.prisma.activity.create({
+    const activity = await this.prisma.activity.create({
       data: {
         title: data.title,
         purpose: data.purpose,
@@ -279,20 +280,39 @@ export class ClassService {
         status: 'ACTIVE'
       }
     });
+
+    // Invalidate activities cache for this class
+    cachedQueries.invalidateActivitiesCache(data.classId);
+
+    return activity;
   }
 
   async updateActivity(id: string, data: Partial<UpdateActivityInput>): Promise<Activity> {
-    return this.prisma.activity.update({
+    const activity = await this.prisma.activity.update({
       where: { id },
       data
     });
+
+    // Invalidate activities cache for this class
+    if (activity.classId) {
+      cachedQueries.invalidateActivitiesCache(activity.classId);
+    }
+
+    return activity;
   }
 
   async deleteActivity(id: string): Promise<Activity> {
-    return this.prisma.activity.update({
+    const activity = await this.prisma.activity.update({
       where: { id },
       data: { status: 'DELETED' }
     });
+
+    // Invalidate activities cache for this class
+    if (activity.classId) {
+      cachedQueries.invalidateActivitiesCache(activity.classId);
+    }
+
+    return activity;
   }
 
   async getActivity(id: string, includeGrades = false): Promise<Activity & { grades?: ActivityGrade[] }> {
@@ -329,35 +349,93 @@ export class ClassService {
     skip = 0,
     take = 10
   ): Promise<{ items: Activity[]; total: number }> {
-    const [items, total] = await Promise.all([
-      this.prisma.activity.findMany({
-        where: {
-          classId: filters.classId,
-          purpose: filters.purpose,
-          learningType: filters.learningType,
-          assessmentType: filters.assessmentType,
-          status: filters.status || 'ACTIVE'
-        },
-        include: {
-          subject: true,
-          topic: true
-        },
-        skip,
-        take,
-        orderBy: { createdAt: 'desc' }
-      }),
-      this.prisma.activity.count({
-        where: {
-          classId: filters.classId,
-          purpose: filters.purpose,
-          learningType: filters.learningType,
-          assessmentType: filters.assessmentType,
-          status: filters.status || 'ACTIVE'
-        }
-      })
-    ]);
+    // Create cache key for this specific query
+    const cacheKey = `activities:${filters.classId}:${filters.purpose || 'all'}:${filters.learningType || 'all'}:${filters.assessmentType || 'all'}:${filters.status || 'ACTIVE'}:${skip}:${take}`;
 
-    return { items, total };
+    // Try to get from cache first (5-minute TTL for activities)
+    const cached = await cachedQueries.getCachedQuery(cacheKey, async () => {
+      // Add timeout protection for slow queries
+      const queryTimeout = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Activity query timeout')), 5000); // 5 second timeout
+      });
+
+      const queryPromise = Promise.all([
+        this.prisma.activity.findMany({
+          where: {
+            classId: filters.classId,
+            purpose: filters.purpose,
+            learningType: filters.learningType,
+            assessmentType: filters.assessmentType,
+            status: filters.status || 'ACTIVE'
+          },
+          select: {
+            id: true,
+            title: true,
+            classId: true,
+            subjectId: true,
+            topicId: true,
+            purpose: true,
+            learningType: true,
+            assessmentType: true,
+            status: true,
+            isGradable: true,
+            maxScore: true,
+            passingScore: true,
+            weightage: true,
+            gradingConfig: true,
+            startDate: true,
+            endDate: true,
+            duration: true,
+            bloomsLevel: true,
+            bloomsDistribution: true,
+            content: true,
+            h5pContentId: true,
+            rubricId: true,
+            templateId: true,
+            lessonPlanId: true,
+            createdById: true,
+            createdAt: true,
+            updatedAt: true,
+            subject: {
+              select: {
+                id: true,
+                name: true,
+                code: true
+              }
+            },
+            topic: {
+              select: {
+                id: true,
+                title: true
+              }
+            },
+            _count: {
+              select: {
+                activityGrades: true
+              }
+            }
+          },
+          skip,
+          take,
+          orderBy: { updatedAt: 'desc' }
+        }),
+        this.prisma.activity.count({
+          where: {
+            classId: filters.classId,
+            purpose: filters.purpose,
+            learningType: filters.learningType,
+            assessmentType: filters.assessmentType,
+            status: filters.status || 'ACTIVE'
+          }
+        })
+      ]);
+
+      // Race the query against timeout
+      const [items, total] = await Promise.race([queryPromise, queryTimeout]);
+      return { items, total };
+    });
+
+    return cached;
   }
 
   async saveActivityGrades(

@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { SubjectService } from "../services/subject.service";
 import { SystemStatus, UserType } from "../constants";
 import { TRPCError } from "@trpc/server";
+import { ProcedureCacheHelpers } from "../cache/advanced-procedure-cache";
 
 // Input validation schemas
 const createSubjectSchema = z.object({
@@ -28,18 +29,36 @@ const subjectIdSchema = z.object({
 });
 
 export const subjectRouter = createTRPCRouter({
-  // Get all subjects
+  // Get all subjects with caching
   getAllSubjects: protectedProcedure
     .query(async ({ ctx }) => {
       try {
-        return ctx.prisma.subject.findMany({
-          where: {
-            status: 'ACTIVE' as SystemStatus,
-          },
-          orderBy: {
-            name: 'asc',
-          },
-        });
+        return await ProcedureCacheHelpers.cacheSystemConfig(
+          'subjects:all',
+          async () => {
+            return ctx.prisma.subject.findMany({
+              where: {
+                status: 'ACTIVE' as SystemStatus,
+              },
+              select: {
+                id: true,
+                name: true,
+                credits: true,
+                status: true,
+                createdAt: true,
+                _count: {
+                  select: {
+                    topics: true,
+                    courses: true
+                  }
+                }
+              },
+              orderBy: {
+                name: 'asc',
+              },
+            });
+          }
+        );
       } catch (error) {
         console.error('Error fetching subjects:', error);
         throw new TRPCError({

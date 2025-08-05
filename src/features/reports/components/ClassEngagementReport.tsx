@@ -171,7 +171,7 @@ export function ClassEngagementReport({ classId, period, data, isLoading }: Clas
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={engagementData.engagementTrend}>
+            <AreaChart data={engagementData.engagementTrend || []}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
@@ -197,7 +197,7 @@ export function ClassEngagementReport({ classId, period, data, isLoading }: Clas
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={engagementData.activityEngagement}>
+              <BarChart data={engagementData.activityEngagement || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="activity" />
                 <YAxis />
@@ -216,7 +216,7 @@ export function ClassEngagementReport({ classId, period, data, isLoading }: Clas
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={engagementData.timeDistribution}>
+              <BarChart data={engagementData.timeDistribution || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="timeSlot" />
                 <YAxis />
@@ -236,7 +236,7 @@ export function ClassEngagementReport({ classId, period, data, isLoading }: Clas
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
-            <RadarChart data={engagementData.engagementMetrics}>
+            <RadarChart data={engagementData.engagementMetrics || []}>
               <PolarGrid />
               <PolarAngleAxis dataKey="metric" />
               <PolarRadiusAxis angle={90} domain={[0, 100]} />
@@ -264,7 +264,7 @@ export function ClassEngagementReport({ classId, period, data, isLoading }: Clas
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {engagementData.topEngagedStudents.map((student: any, index: number) => (
+              {(engagementData.topEngagedStudents || []).map((student: any, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                   <div>
                     <p className="font-medium">{student.name}</p>
@@ -288,7 +288,7 @@ export function ClassEngagementReport({ classId, period, data, isLoading }: Clas
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {engagementData.lowEngagementStudents.map((student: any, index: number) => (
+              {(engagementData.lowEngagementStudents || []).map((student: any, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
                   <div>
                     <p className="font-medium">{student.name}</p>

@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
+import { SystemStatus } from '@prisma/client';
 import {
   Dialog,
   DialogContent,
@@ -79,7 +80,7 @@ export function ActivityGrid({ classId, className }: ActivityGridProps) {
   const { data: activities, isLoading, refetch } = api.class.listActivities.useQuery(
     {
       classId,
-      status: 'ACTIVE',
+      status: SystemStatus.ACTIVE,
     },
     {
       refetchOnWindowFocus: false,
@@ -157,7 +158,8 @@ export function ActivityGrid({ classId, className }: ActivityGridProps) {
         // Filter by activity type
         const matchesType =
           activityType === 'all' ||
-          (activity.activityType && activity.activityType.toLowerCase() === activityType.toLowerCase());
+          (activity.purpose && activity.purpose.toLowerCase() === activityType.toLowerCase()) ||
+          (activity.learningType && activity.learningType.toLowerCase() === activityType.toLowerCase());
 
         // Filter by date range
         const matchesDateRange = !dateRange || !dateRange.from || !activity.endDate
@@ -188,7 +190,7 @@ export function ActivityGrid({ classId, className }: ActivityGridProps) {
 
   // Get unique activity types
   const activityTypes = activities && activities.items
-    ? ['all', ...new Set(activities.items.map(activity => activity.activityType || 'Unknown').filter(Boolean))]
+    ? ['all', ...new Set(activities.items.map(activity => activity.purpose || activity.learningType || 'Unknown').filter(Boolean))]
     : ['all'];
 
   // Handle view activity
@@ -291,11 +293,11 @@ export function ActivityGrid({ classId, className }: ActivityGridProps) {
               />
             </div>
 
-            {lessonPlans && lessonPlans.length > 0 && (
+            {lessonPlans && lessonPlans.lessonPlans && lessonPlans.lessonPlans.length > 0 && (
               <div className="space-y-2 sm:col-span-2">
                 <label className="text-sm font-medium">Lesson Plan</label>
                 <LessonPlanFilter
-                  lessonPlans={lessonPlans}
+                  lessonPlans={lessonPlans.lessonPlans}
                   selectedLessonPlans={selectedLessonPlans}
                   onSelectionChange={setSelectedLessonPlans}
                 />

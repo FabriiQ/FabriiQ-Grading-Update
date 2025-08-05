@@ -29,6 +29,10 @@ import { api } from '@/trpc/react';
 import { prepareActivityCreateData, validateActivityData } from '@/components/teacher/activities/enhanced/utils/api-integration';
 import { AchievementConfigEditor, type AchievementConfig } from './achievement/AchievementConfigEditor';
 
+// Import enhanced selectors from assessment creator
+import { SubjectSelector } from '@/features/assessments/components/creation/dialog-steps/SubjectSelector';
+import { TopicSelector } from '@/features/assessments/components/creation/dialog-steps/TopicSelector';
+
 // Define ActivityTypeDefinition interface to replace the old one
 interface ActivityTypeDefinition<T> {
   id: string;
@@ -110,6 +114,7 @@ function UnifiedActivityCreatorCore({
 
   // State for selected subject and topic
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>(subjectId || '');
+  const [selectedTopicId, setSelectedTopicId] = useState<string>(topicId || '');
 
   // Performance optimizations
   const { warmUpCache, preloadData } = usePerformanceOptimization();
@@ -216,7 +221,7 @@ function UnifiedActivityCreatorCore({
     };
 
     loadActivityType();
-  }, [activityTypeId, startLoading, setStage, forceComplete, stopWithError]);
+  }, [activityTypeId]); // Only depend on activityTypeId to prevent infinite loops
 
   // Create activity mutation
   const createActivity = api.activity.create.useMutation({
@@ -255,8 +260,15 @@ function UnifiedActivityCreatorCore({
     }
   );
 
-  // For now, use empty topics array - will be implemented when topic API is available
-  const topics: Array<{ id: string; name: string }> = [];
+  // Fetch topics for the selected subject
+  const { data: topics } = api.subjectTopic.getHierarchy.useQuery(
+    { subjectId: selectedSubjectId },
+    {
+      enabled: !!selectedSubjectId,
+      staleTime: 1000 * 60 * 10, // 10 minutes
+      cacheTime: 1000 * 60 * 30, // 30 minutes
+    }
+  );
 
   // Form for common fields
   const form = useForm<ActivityFormValues>({
@@ -293,7 +305,7 @@ function UnifiedActivityCreatorCore({
         `activity-templates-${activityTypeId}`,
       ]);
     }
-  }, [classId, activityTypeId, warmUpCache, preloadData]);
+  }, [classId, activityTypeId]); // Remove function dependencies to prevent infinite loops
 
   // Handle form submission
   const onSubmit = async (data: ActivityFormValues) => {
@@ -339,7 +351,7 @@ function UnifiedActivityCreatorCore({
       ...sanitizedData,
       classId,
       subjectId: selectedSubjectId,
-      topicId: topicId || '',
+      topicId: selectedTopicId || '',
       activityType: activityTypeId,
       content: config,
       settings: {
@@ -535,48 +547,43 @@ function UnifiedActivityCreatorCore({
           </CardContent>
         </Card>
 
-        {/* Subject and Topic Selection */}
+        {/* Subject Selection */}
         <Card>
           <CardHeader>
-            <CardTitle>Academic Context</CardTitle>
-            <CardDescription>Select the subject and topic for this activity</CardDescription>
+            <CardTitle>Subject Selection</CardTitle>
+            <CardDescription>Choose the subject for this activity</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Subject</label>
-                <select
-                  value={selectedSubjectId}
-                  onChange={(e) => setSelectedSubjectId(e.target.value)}
-                  className="w-full p-2 border rounded-md"
-                >
-                  <option value="">Select a subject</option>
-                  {subjects.map((subject: any) => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Topic (Optional)</label>
-                <select
-                  defaultValue={topicId || ''}
-                  className="w-full p-2 border rounded-md"
-                  disabled={!selectedSubjectId}
-                >
-                  <option value="">Select a topic</option>
-                  {topics.map((topic: any) => (
-                    <option key={topic.id} value={topic.id}>
-                      {topic.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+          <CardContent>
+            <SubjectSelector
+              subjects={subjects}
+              selectedSubjectId={selectedSubjectId}
+              onSelect={setSelectedSubjectId}
+              isLoading={!subjects}
+            />
           </CardContent>
         </Card>
+
+        {/* Topic Selection */}
+        {selectedSubjectId && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Topic Selection</CardTitle>
+              <CardDescription>Choose a topic for this activity (optional)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TopicSelector
+                subjectId={selectedSubjectId}
+                selectedTopicId={selectedTopicId}
+                selectedTopicIds={selectedTopicId ? [selectedTopicId] : []}
+                onSelect={setSelectedTopicId}
+                onSelectMultiple={(ids) => setSelectedTopicId(ids[0] || '')}
+                allowMultiple={false}
+                isLoading={!!selectedSubjectId && !topics}
+                maxHeight="300px"
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Grading Options */}
         {isGradable && (
@@ -670,12 +677,14 @@ function UnifiedActivityCreatorCore({
                   <EditorComponent
                     config={config}
                     onChange={setConfig}
+                    standalone={false}
                   />
                 ) : editorComponent ? (
                   <div className="border p-4 rounded-md">
                     {React.createElement(editorComponent, {
                       config,
                       onChange: setConfig,
+                      standalone: false,
                     })}
                   </div>
                 ) : (

@@ -228,21 +228,36 @@ export default function LessonPlanDashboard() {
     },
   });
 
-  // Handle actions
-  const handleView = (id: string) => {
-    router.push(`/teacher/lesson-plans/${id}`);
+  // Handle actions - now class-based
+  const handleView = (id: string, classId?: string) => {
+    if (classId) {
+      router.push(`/teacher/classes/${classId}/lesson-plans/${id}`);
+    } else {
+      // Fallback - redirect to classes page
+      router.push('/teacher/classes');
+    }
   };
 
-  const handleEdit = (id: string) => {
-    router.push(`/teacher/lesson-plans/${id}/edit`);
+  const handleEdit = (id: string, classId?: string) => {
+    if (classId) {
+      router.push(`/teacher/classes/${classId}/lesson-plans/${id}/edit`);
+    } else {
+      // Fallback - redirect to classes page
+      router.push('/teacher/classes');
+    }
   };
 
   const handleSubmit = (id: string) => {
     submitMutation.mutate({ id });
   };
 
-  const handleCreate = () => {
-    router.push('/teacher/lesson-plans/new');
+  const handleCreate = (classId?: string) => {
+    if (classId) {
+      router.push(`/teacher/classes/${classId}/lesson-plans/new`);
+    } else {
+      // Fallback - redirect to classes page
+      router.push('/teacher/classes');
+    }
   };
 
   // Filter lesson plans based on active tab

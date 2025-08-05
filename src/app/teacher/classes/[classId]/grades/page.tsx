@@ -27,4 +27,4 @@ export default function ClassGradesPage() {
       <EnhancedGradebook classId={classId} />
     </div>
   );
-
+}

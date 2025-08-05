@@ -19,12 +19,14 @@ const nextConfig = {
     workerThreads: false,
     // Optimize package imports to reduce bundle size (excluding @prisma/client to avoid conflicts)
     optimizePackageImports: ['socket.io', 'socket.io-client'],
-    // Enable View Transitions API for smooth page transitions
-    viewTransition: true,
+    // Disable View Transitions API to prevent compilation issues
+    viewTransition: process.env.DISABLE_VIEW_TRANSITIONS !== 'true',
     // Disable CSS optimization to avoid critters dependency
     optimizeCss: false,
     // Maintain scroll position during navigation
     scrollRestoration: true,
+    // Enable optimized server React for faster compilation
+    optimizeServerReact: true,
   },
 
   // Compiler optimizations
@@ -34,12 +36,25 @@ const nextConfig = {
   },
 
   webpack: (config, { isServer, dev }) => {
+    // Enable filesystem caching for faster builds
+    if (dev) {
+      config.cache = {
+        type: 'filesystem',
+        buildDependencies: {
+          config: [__filename],
+        },
+        cacheDirectory: '.next/cache/webpack',
+      };
+    }
+
     // Memory optimization for webpack
     if (!dev && !isServer) {
       // Only apply chunk splitting to client-side builds
       config.optimization = {
         ...config.optimization,
         // Reduce memory usage during build
+        minimize: true,
+        usedExports: true,
         splitChunks: {
           chunks: 'all',
           cacheGroups: {

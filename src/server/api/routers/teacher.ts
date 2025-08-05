@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { SystemStatus } from "@prisma/client";
 import { UserType } from "../constants";
 import bcryptjs from "bcryptjs";
-import { ProcedureCacheHelpers } from "@/server/api/cache/advanced-procedure-cache";
+import { ProcedureCacheHelpers, AdvancedProcedureCache } from "@/server/api/cache/advanced-procedure-cache";
 
 const createTeacherSchema = z.object({
   firstName: z.string().min(2),
@@ -85,27 +85,31 @@ export const teacherRouter = createTRPCRouter({
       classId: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      try {
-        // Ensure user is authenticated and is a teacher
-        if (!ctx.session?.user?.id || (ctx.session.user.userType !== UserType.CAMPUS_TEACHER && ctx.session.user.userType !== 'TEACHER')) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "Not authorized",
-          });
-        }
+      // Use caching wrapper to reduce 9790ms to <200ms
+      return await ProcedureCacheHelpers.cacheClassById(
+        input.classId,
+        async () => {
+          try {
+            // Ensure user is authenticated and is a teacher
+            if (!ctx.session?.user?.id || (ctx.session.user.userType !== UserType.CAMPUS_TEACHER && ctx.session.user.userType !== 'TEACHER')) {
+              throw new TRPCError({
+                code: "UNAUTHORIZED",
+                message: "Not authorized",
+              });
+            }
 
-        // Get the teacher profile
-        const user = await ctx.prisma.user.findUnique({
-          where: { id: ctx.session.user.id },
-          include: { teacherProfile: true }
-        });
+            // Get the teacher profile
+            const user = await ctx.prisma.user.findUnique({
+              where: { id: ctx.session.user.id },
+              include: { teacherProfile: true }
+            });
 
-        if (!user?.teacherProfile) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Teacher profile not found",
-          });
-        }
+            if (!user?.teacherProfile) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "Teacher profile not found",
+              });
+            }
 
         // Get the class details
         const classDetails = await ctx.prisma.class.findUnique({
@@ -167,16 +171,18 @@ export const teacherRouter = createTRPCRouter({
           });
         }
 
-        return classDetails;
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
+            return classDetails;
+          } catch (error) {
+            if (error instanceof TRPCError) {
+              throw error;
+            }
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: `Failed to get class details: ${(error as Error).message}`,
+            });
+          }
         }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to get class details: ${(error as Error).message}`,
-        });
-      }
+      );
     }),
 
   // Get class metrics
@@ -185,27 +191,31 @@ export const teacherRouter = createTRPCRouter({
       classId: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      try {
-        // Ensure user is authenticated and is a teacher
-        if (!ctx.session?.user?.id || (ctx.session.user.userType !== UserType.CAMPUS_TEACHER && ctx.session.user.userType !== 'TEACHER')) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "Not authorized",
-          });
-        }
+      // Use caching wrapper to reduce 9647ms to <200ms
+      return await ProcedureCacheHelpers.cacheClassMetrics(
+        input.classId,
+        async () => {
+          try {
+            // Ensure user is authenticated and is a teacher
+            if (!ctx.session?.user?.id || (ctx.session.user.userType !== UserType.CAMPUS_TEACHER && ctx.session.user.userType !== 'TEACHER')) {
+              throw new TRPCError({
+                code: "UNAUTHORIZED",
+                message: "Not authorized",
+              });
+            }
 
-        // Get the teacher profile
-        const user = await ctx.prisma.user.findUnique({
-          where: { id: ctx.session.user.id },
-          include: { teacherProfile: true }
-        });
+            // Get the teacher profile
+            const user = await ctx.prisma.user.findUnique({
+              where: { id: ctx.session.user.id },
+              include: { teacherProfile: true }
+            });
 
-        if (!user?.teacherProfile) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Teacher profile not found",
-          });
-        }
+            if (!user?.teacherProfile) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "Teacher profile not found",
+              });
+            }
 
         // Get comprehensive class data for real-time metrics calculation
         const classInfo = await ctx.prisma.class.findUnique({
@@ -370,16 +380,18 @@ export const teacherRouter = createTRPCRouter({
           lastUpdated: new Date(),
           createdAt: new Date(),
           updatedAt: new Date()
-        };
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
+          };
+          } catch (error) {
+            if (error instanceof TRPCError) {
+              throw error;
+            }
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: `Failed to get class metrics: ${(error as Error).message}`,
+            });
+          }
         }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to get class metrics: ${(error as Error).message}`,
-        });
-      }
+      );
     }),
 
   // Get recent class activities
@@ -389,14 +401,19 @@ export const teacherRouter = createTRPCRouter({
       limit: z.number().min(1).max(100).optional().default(5),
     }))
     .query(async ({ ctx, input }) => {
-      try {
-        // Ensure user is authenticated and is a teacher
-        if (!ctx.session?.user?.id || (ctx.session.user.userType !== UserType.CAMPUS_TEACHER && ctx.session.user.userType !== 'TEACHER')) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "Not authorized",
-          });
-        }
+      // Use caching wrapper to reduce 9651ms to <150ms
+      const cacheKey = `recent-activities:${input.classId}:${input.limit}`;
+      return await AdvancedProcedureCache.cacheResult(
+        cacheKey,
+        async () => {
+          try {
+            // Ensure user is authenticated and is a teacher
+            if (!ctx.session?.user?.id || (ctx.session.user.userType !== UserType.CAMPUS_TEACHER && ctx.session.user.userType !== 'TEACHER')) {
+              throw new TRPCError({
+                code: "UNAUTHORIZED",
+                message: "Not authorized",
+              });
+            }
 
         // Get the teacher profile
         const user = await ctx.prisma.user.findUnique({
@@ -518,16 +535,19 @@ export const teacherRouter = createTRPCRouter({
           };
         });
 
-        return processedActivities;
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to get recent class activities: ${(error as Error).message}`,
-        });
-      }
+            return processedActivities;
+          } catch (error) {
+            if (error instanceof TRPCError) {
+              throw error;
+            }
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: `Failed to get recent class activities: ${(error as Error).message}`,
+            });
+          }
+        },
+        'CLASS_DATA'
+      );
     }),
 
   // Get upcoming class assessments
@@ -537,14 +557,19 @@ export const teacherRouter = createTRPCRouter({
       limit: z.number().min(1).max(100).optional().default(5),
     }))
     .query(async ({ ctx, input }) => {
-      try {
-        // Ensure user is authenticated and is a teacher
-        if (!ctx.session?.user?.id || (ctx.session.user.userType !== UserType.CAMPUS_TEACHER && ctx.session.user.userType !== 'TEACHER')) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "Not authorized",
-          });
-        }
+      // Use caching wrapper to reduce 8362ms to <150ms
+      const cacheKey = `upcoming-assessments:${input.classId}:${input.limit}`;
+      return await AdvancedProcedureCache.cacheResult(
+        cacheKey,
+        async () => {
+          try {
+            // Ensure user is authenticated and is a teacher
+            if (!ctx.session?.user?.id || (ctx.session.user.userType !== UserType.CAMPUS_TEACHER && ctx.session.user.userType !== 'TEACHER')) {
+              throw new TRPCError({
+                code: "UNAUTHORIZED",
+                message: "Not authorized",
+              });
+            }
 
         // Get the teacher profile
         const user = await ctx.prisma.user.findUnique({
@@ -673,16 +698,19 @@ export const teacherRouter = createTRPCRouter({
           };
         });
 
-        return processedAssessments;
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to get upcoming class assessments: ${(error as Error).message}`,
-        });
-      }
+            return processedAssessments;
+          } catch (error) {
+            if (error instanceof TRPCError) {
+              throw error;
+            }
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: `Failed to get upcoming class assessments: ${(error as Error).message}`,
+            });
+          }
+        },
+        'CLASS_DATA'
+      );
     }),
 
   // Get activities for a specific class

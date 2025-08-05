@@ -34,7 +34,7 @@ class ProcessEventManager {
     process.on('unhandledRejection', this.handleUnhandledRejection.bind(this));
 
     this.initialized = true;
-    logger.debug('Process event manager initialized');
+    // Removed debug logging to reduce overhead
   }
 
   /**
@@ -96,24 +96,24 @@ class ProcessEventManager {
   }
 
   private handleExit(code: number): void {
-    logger.debug(`Process exit with code ${code}`);
+    // Removed debug logging to reduce overhead
     this.executeHandlers('exit', code).catch(() => {});
   }
 
   private async handleSIGINT(): Promise<void> {
-    logger.debug('Received SIGINT signal');
+    // Removed debug logging to reduce overhead
     await this.executeHandlers('SIGINT');
     process.exit(0);
   }
 
   private async handleSIGTERM(): Promise<void> {
-    logger.debug('Received SIGTERM signal');
+    // Removed debug logging to reduce overhead
     await this.executeHandlers('SIGTERM');
     process.exit(0);
   }
 
   private async handleBeforeExit(code: number): Promise<void> {
-    logger.debug(`Process beforeExit with code ${code}`);
+    // Removed debug logging to reduce overhead
     await this.executeHandlers('beforeExit', code);
   }
 

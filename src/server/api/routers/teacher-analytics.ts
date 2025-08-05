@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { TeacherMetricType } from "@/types/analytics";
 import { ProcedureCacheHelpers } from "@/server/api/cache/advanced-procedure-cache";
+import { cachedQueries } from "@/server/db";
 
 /**
  * Teacher Analytics Router
@@ -37,26 +38,203 @@ export const teacherAnalyticsRouter = createTRPCRouter({
       try {
         console.log("Getting teacher metrics for:", { teacherId, courseId, programId, timeframe, metricType });
 
-        // Test database connection first
-        await ctx.prisma.$queryRaw`SELECT 1`;
+        // Use cached query with timeout protection
+        const cacheKey = `teacher-metrics:${teacherId || 'all'}:${courseId || 'all'}:${programId || 'all'}:${timeframe}:${metricType}`;
 
-        // If a specific teacher is requested
-        if (teacherId) {
-          console.log("Fetching specific teacher:", teacherId);
-          const teacher = await prisma.teacherProfile.findUnique({
-            where: { id: teacherId },
-            include: {
-              user: {
+        return await cachedQueries.getCachedQuery(
+          cacheKey,
+          async () => {
+            // Test database connection first with timeout
+            const connectionTest = Promise.race([
+              ctx.prisma.$queryRaw`SELECT 1`,
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Database connection timeout')), 3000)
+              )
+            ]);
+
+            await connectionTest;
+
+            // If a specific teacher is requested
+            if (teacherId) {
+              console.log("Fetching specific teacher:", teacherId);
+
+              // Use timeout protection for individual queries
+              const teacherQuery = Promise.race([
+                prisma.teacherProfile.findUnique({
+                  where: { id: teacherId },
+                  include: {
+                    user: {
+                      select: {
+                        name: true,
+                      }
+                    },
+                    classesAsTeacher: {
+                      select: {
+                        id: true,
+                        name: true,
+                        students: {
+                          select: { id: true }
+                        },
+                        courseCampus: {
+                          select: {
+                            course: {
+                              select: { id: true, name: true }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    performanceMetrics: {
+                      where: {
+                        timeframe: timeframe,
+                        ...(courseId && { courseId }),
+                        ...(programId && { programId }),
+                      },
+                      orderBy: { createdAt: 'desc' },
+                      take: 1,
+                    }
+                  }
+                }),
+                new Promise<never>((_, reject) =>
+                  setTimeout(() => reject(new Error('Teacher query timeout')), 5000)
+                )
+              ]);
+
+              const teacher = await teacherQuery as Awaited<ReturnType<typeof prisma.teacherProfile.findUnique>> & {
+                user: { name: string } | null;
+                classesAsTeacher: Array<{
+                  id: string;
+                  name: string;
+                  students: Array<{ id: string }>;
+                  courseCampus: {
+                    course: { id: string; name: string };
+                  } | null;
+                }>;
+                performanceMetrics: Array<any>;
+              };
+
+              if (!teacher) {
+                console.log("Teacher not found for ID:", teacherId);
+                throw new TRPCError({
+                  code: "NOT_FOUND",
+                  message: "Teacher not found",
+                });
+              }
+
+              console.log("Found teacher:", teacher.id, "with", teacher.classesAsTeacher?.length || 0, "classes");
+
+              return {
+                id: teacher.id,
+                name: teacher.user?.name || "Unknown",
+                avatar: null,
+                metrics: teacher.performanceMetrics?.[0] || {
+                  studentPerformance: 0,
+                  attendanceRate: 0,
+                  feedbackTime: 0,
+                  activityCreation: 0,
+                  activityEngagement: 0,
+                  classPerformance: 0,
+                  overallRating: 0,
+                },
+                classes: teacher.classesAsTeacher?.map(cls => ({
+                  id: cls.id,
+                  name: cls.name,
+                  studentCount: cls.students?.length || 0,
+                  courseName: cls.courseCampus?.course?.name || "Unknown Course",
+                })) || [],
+              };
+            }
+
+            // Optimized query: Get teachers with minimal data first with timeout protection
+            const teachersQuery = Promise.race([
+              prisma.teacherProfile.findMany({
+                where: {
+                  ...(courseId && {
+                    classesAsTeacher: {
+                      some: {
+                        courseCampus: {
+                          courseId,
+                        }
+                      }
+                    }
+                  }),
+                  ...(programId && {
+                    classesAsTeacher: {
+                      some: {
+                        courseCampus: {
+                          course: {
+                            programId,
+                          }
+                        }
+                      }
+                    }
+                  }),
+                },
                 select: {
-                  name: true,
+                  id: true,
+                  user: {
+                    select: {
+                      name: true,
+                    }
+                  }
                 }
-              },
-              classesAsTeacher: {
+              }),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Teachers query timeout')), 5000)
+              )
+            ]);
+
+            // Get performance metrics separately to avoid N+1 queries with timeout protection
+            const teachers = await teachersQuery as Array<{
+              id: string;
+              user: { name: string | null } | null;
+            }>;
+            const metricsQuery = Promise.race([
+              prisma.teacherPerformanceMetrics.findMany({
+                where: {
+                  timeframe: timeframe,
+                  ...(courseId && { courseId }),
+                  ...(programId && { programId }),
+                  teacherId: {
+                    in: teachers.map(t => t.id)
+                  }
+                },
+                orderBy: { createdAt: 'desc' },
+                distinct: ['teacherId'],
+              }),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Metrics query timeout')), 5000)
+              )
+            ]);
+
+            // Get class data separately with timeout protection
+            const classesQuery = Promise.race([
+              prisma.class.findMany({
+                where: {
+                  classTeacherId: {
+                    in: teachers.map(t => t.id)
+                  },
+                  ...(courseId && {
+                    courseCampus: {
+                      courseId,
+                    }
+                  }),
+                  ...(programId && {
+                    courseCampus: {
+                      course: {
+                        programId,
+                      }
+                    }
+                  }),
+                },
                 select: {
                   id: true,
                   name: true,
-                  students: {
-                    select: { id: true }
+                  classTeacherId: true,
+                  _count: {
+                    select: {
+                      students: true
+                    }
                   },
                   courseCampus: {
                     select: {
@@ -66,182 +244,59 @@ export const teacherAnalyticsRouter = createTRPCRouter({
                     }
                   }
                 }
-              },
-              performanceMetrics: {
-                where: {
-                  timeframe: timeframe,
-                  ...(courseId && { courseId }),
-                  ...(programId && { programId }),
-                },
-                orderBy: { createdAt: 'desc' },
-                take: 1,
-              }
-            }
-          });
+              }),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Classes query timeout')), 5000)
+              )
+            ]);
 
-          if (!teacher) {
-            console.log("Teacher not found for ID:", teacherId);
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message: "Teacher not found",
+            // Execute all queries in parallel
+            const [metrics, classes] = await Promise.all([
+              metricsQuery,
+              classesQuery
+            ]);
+
+            // Create lookup maps for efficient data joining
+            const metricsMap = new Map((metrics as any[]).map((m: any) => [m.teacherId, m]));
+            const classesMap = new Map<string, any[]>();
+            (classes as any[]).forEach((cls: any) => {
+              if (cls.classTeacherId) {
+                if (!classesMap.has(cls.classTeacherId)) {
+                  classesMap.set(cls.classTeacherId, []);
+                }
+                classesMap.get(cls.classTeacherId)!.push(cls);
+              }
             });
-          }
 
-          console.log("Found teacher:", teacher.id, "with", teacher.classesAsTeacher.length, "classes");
+            // Process and return teacher metrics using optimized data
+            return teachers.map(teacher => {
+              const latestMetric = metricsMap.get(teacher.id);
+              const teacherClasses = classesMap.get(teacher.id) || [];
 
-          return {
-            id: teacher.id,
-            name: teacher.user.name || "Unknown",
-            avatar: null,
-            metrics: teacher.performanceMetrics[0] || {
-              studentPerformance: 0,
-              attendanceRate: 0,
-              feedbackTime: 0,
-              activityCreation: 0,
-              activityEngagement: 0,
-              classPerformance: 0,
-              overallRating: 0,
-            },
-            classes: teacher.classesAsTeacher.map(cls => ({
-              id: cls.id,
-              name: cls.name,
-              studentCount: cls.students.length,
-              courseName: cls.courseCampus.course.name,
-            })),
-          };
-        }
-
-        // Optimized query: Get teachers with minimal data first
-        const teachersQuery = prisma.teacherProfile.findMany({
-          where: {
-            ...(courseId && {
-              classesAsTeacher: {
-                some: {
-                  courseCampus: {
-                    courseId,
-                  }
-                }
-              }
-            }),
-            ...(programId && {
-              classesAsTeacher: {
-                some: {
-                  courseCampus: {
-                    course: {
-                      programId,
-                    }
-                  }
-                }
-              }
-            }),
+              return {
+                id: teacher.id,
+                name: teacher.user?.name || "Unknown",
+                avatar: null,
+                metrics: latestMetric || {
+                  studentPerformance: 0,
+                  attendanceRate: 0,
+                  feedbackTime: 0,
+                  activityCreation: 0,
+                  activityEngagement: 0,
+                  classPerformance: 0,
+                  overallRating: 0,
+                },
+                classes: teacherClasses.map((cls: any) => ({
+                  id: cls.id,
+                  name: cls.name,
+                  studentCount: cls._count?.students || 0,
+                  courseName: cls.courseCampus.course.name,
+                })),
+              };
+            });
           },
-          select: {
-            id: true,
-            user: {
-              select: {
-                name: true,
-              }
-            }
-          }
-        });
-
-        // Get performance metrics separately to avoid N+1 queries
-        const metricsQuery = prisma.teacherPerformanceMetrics.findMany({
-          where: {
-            timeframe: timeframe,
-            ...(courseId && { courseId }),
-            ...(programId && { programId }),
-            teacherId: {
-              in: (await teachersQuery).map(t => t.id)
-            }
-          },
-          orderBy: { createdAt: 'desc' },
-          distinct: ['teacherId'],
-        });
-
-        // Get class data separately
-        const classesQuery = prisma.class.findMany({
-          where: {
-            classTeacherId: {
-              in: (await teachersQuery).map(t => t.id)
-            },
-            ...(courseId && {
-              courseCampus: {
-                courseId,
-              }
-            }),
-            ...(programId && {
-              courseCampus: {
-                course: {
-                  programId,
-                }
-              }
-            }),
-          },
-          select: {
-            id: true,
-            name: true,
-            classTeacherId: true,
-            _count: {
-              select: {
-                students: true
-              }
-            },
-            courseCampus: {
-              select: {
-                course: {
-                  select: { id: true, name: true }
-                }
-              }
-            }
-          }
-        });
-
-        // Execute all queries in parallel
-        const [teachers, metrics, classes] = await Promise.all([
-          teachersQuery,
-          metricsQuery,
-          classesQuery
-        ]);
-
-        // Create lookup maps for efficient data joining
-        const metricsMap = new Map(metrics.map(m => [m.teacherId, m]));
-        const classesMap = new Map<string, typeof classes>();
-        classes.forEach(cls => {
-          if (cls.classTeacherId) {
-            if (!classesMap.has(cls.classTeacherId)) {
-              classesMap.set(cls.classTeacherId, []);
-            }
-            classesMap.get(cls.classTeacherId)!.push(cls);
-          }
-        });
-
-        // Process and return teacher metrics using optimized data
-        return teachers.map(teacher => {
-          const latestMetric = metricsMap.get(teacher.id);
-          const teacherClasses = classesMap.get(teacher.id) || [];
-
-          return {
-            id: teacher.id,
-            name: teacher.user.name || "Unknown",
-            avatar: null,
-            metrics: latestMetric || {
-              studentPerformance: 0,
-              attendanceRate: 0,
-              feedbackTime: 0,
-              activityCreation: 0,
-              activityEngagement: 0,
-              classPerformance: 0,
-              overallRating: 0,
-            },
-            classes: teacherClasses.map(cls => ({
-              id: cls.id,
-              name: cls.name,
-              studentCount: cls._count?.students || 0,
-              courseName: cls.courseCampus.course.name,
-            })),
-          };
-        });
+          5 * 60 * 1000 // 5 minute cache
+        );
       } catch (error) {
         console.error("Error fetching teacher metrics:", error);
 
